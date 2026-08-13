@@ -10,6 +10,25 @@ The prototype should prioritize one thing above everything else:
 
 The web application exists mainly to make the architecture easy to understand during the presentation.
 
+## 1.1 Delivery Context
+
+This prototype is built for a **live demonstration only**. There is no separate code-submission requirement.
+
+During the demonstration:
+
+* Codex should visibly show the MCP tools it discovers and calls;
+* the presenter may refresh the web application to show newly persisted MCP activity and enterprise data;
+* real-time browser updates, polling, WebSockets, and server-sent events are not required;
+* reliability and a clear presentation flow are more important than feature breadth or frontend polish.
+
+Before implementation, define a golden demo contract for each of the three presentation scenarios. Each contract must identify:
+
+* the seeded records that make the scenario possible;
+* the expected tool-call sequence;
+* the expected answer or database mutation;
+* the activity records the presenter should see after refreshing the page;
+* the expected result if the scenario is accidentally repeated.
+
 ---
 
 # 2. Final Technology Stack
@@ -217,6 +236,7 @@ updatedAt
 ```text
 id
 tool
+target
 input
 result
 status
@@ -230,9 +250,49 @@ id
 orderId
 amount
 status
+reason
 createdAt
 resolvedAt
 ```
+
+## Monetary representation
+
+Store and calculate every monetary value using integer minor units, such as cents. This applies to:
+
+* `orders.total`;
+* `refundPolicies.maxAutoRefund`;
+* `refunds.amount`;
+* `approvals.amount`.
+
+For example, `$42.50` is stored as `4250`. Do not use JavaScript floating-point arithmetic for money. Tool responses should include the integer minor-unit value and currency code; human-readable text may format it as dollars.
+
+The prototype uses `USD` for all monetary records.
+
+## Data integrity rules
+
+* `refundPolicies.tier` must be unique.
+* Each order has at most one shipment.
+* An order may have multiple support tickets.
+* `refunds.orderId` must be unique so an order can have at most one refund in this prototype.
+* `approvals.orderId` must be unique so an order can have at most one approval request in this prototype, regardless of its final status.
+* Approval resolution and refund creation must occur in one database transaction.
+
+## Refund eligibility and calculation
+
+An order is eligible for the prototype refund workflow only when:
+
+* the customer is active;
+* the shipment status is `DELAYED` and `delayDays` is greater than zero;
+* the order does not already have a refund;
+* the order does not already have an approval request.
+
+Calculate the recommended refund from the order total and the customer's tier policy:
+
+```text
+recommendedRefund = orderTotal × refundPercentage
+```
+
+Represent `refundPercentage` as an integer percentage for the prototype, such as `10` for 10%, and define one consistent integer rounding rule in the policy service. `maxAutoRefund` determines whether the calculated refund is executed automatically or sent for approval; it does not cap or replace the recommended amount.
 
 ---
 
@@ -261,8 +321,13 @@ Include different scenarios:
 * refund-eligible orders
 * high-value orders
 * orders with open tickets
+* at least one Gold-tier delayed order with an open ticket for Scenario 1
+* at least one policy-eligible refund below that tier's `maxAutoRefund` for Scenario 2
+* at least one policy-eligible refund above that tier's `maxAutoRefund` for Scenario 3
 
 The objective is to allow Codex to discover records dynamically.
+
+The named demo records must be deterministic and documented, but the tools must discover them through normal searches. Tool implementations must not contain hardcoded customer or order IDs.
 
 ---
 
@@ -317,6 +382,8 @@ Transport:
 
 The MCP server should be as stateless and simple as possible for smooth deployment and Codex compatibility.
 
+The deployed endpoint should require one simple shared bearer token configured as an environment variable. This is sufficient for the live-demo prototype. Tool annotations describe behavior to MCP clients but are not an authorization mechanism.
+
 ---
 
 # 9. MCP Tool Design Principles
@@ -332,8 +399,11 @@ Each tool should have:
 * concise structured output
 * useful MCP annotations
 * actionable error messages
+* an output schema where practical
 
 Use consistent prefixes to make tools easy for Codex to discover.
+
+Collection tools should support useful filters so Codex can compose a small number of meaningful cross-system calls instead of making an N+1 sequence of individual record requests. Lists should remain concise and should support a bounded `limit` input where appropriate.
 
 Preferred naming style:
 
@@ -354,12 +424,14 @@ ticketing_...
 
 Purpose:
 
-Search CRM customers by name.
+Search CRM customers by name and/or tier.
 
 Input:
 
 ```text
-query
+query (optional)
+tier (optional)
+limit (optional, bounded)
 ```
 
 Example:
@@ -369,6 +441,8 @@ crm_search_customers({
   query: "Northstar"
 })
 ```
+
+At least one of `query` or `tier` must be provided.
 
 Annotations:
 
@@ -403,29 +477,32 @@ Returns:
 
 ---
 
-# 10.3 erp_search_orders
+## 10.3 erp_search_orders
 
 Purpose:
 
 Search orders by:
 
-* customer ID
+* customer ID or customer IDs
 * status
 
 Optional inputs:
 
 ```text
-customerId
+customerId or customerIds
 status
+limit
 ```
 
 This allows Codex to answer broader questions such as:
 
 > Find delayed orders belonging to Gold-tier customers.
 
+At least one filter must be provided. Returned records should be bounded.
+
 ---
 
-# 10.4 erp_get_order
+## 10.4 erp_get_order
 
 Purpose:
 
@@ -447,17 +524,20 @@ Returns:
 
 ---
 
-# 10.5 logistics_get_shipment
+## 10.5 logistics_get_shipment
 
 Purpose:
 
-Retrieve shipping status for an order or shipment.
+Retrieve one shipment by order ID or shipment ID.
 
 Input:
 
 ```text
-orderId
+orderId (optional)
+shipmentId (optional)
 ```
+
+Exactly one identifier must be provided.
 
 Returns:
 
@@ -468,7 +548,26 @@ Returns:
 
 ---
 
-# 10.6 policy_get_refund_policy
+## 10.6 logistics_search_shipments
+
+Purpose:
+
+Search shipments by status, minimum delay days, and/or a bounded list of order IDs.
+
+Optional inputs:
+
+```text
+status
+minimumDelayDays
+orderIds
+limit
+```
+
+At least one filter must be provided. This tool prevents Codex from having to retrieve every shipment individually during a cross-system query.
+
+---
+
+## 10.7 policy_get_refund_policy
 
 Purpose:
 
@@ -487,7 +586,7 @@ Returns:
 
 ---
 
-# 10.7 policy_calculate_refund
+## 10.8 policy_calculate_refund
 
 Purpose:
 
@@ -515,13 +614,15 @@ orderTotal
 refundPercentage
 recommendedRefund
 maxAutoRefund
+currency
+requiresApproval
 ```
 
 The AI should not need to manually calculate the financial rule itself.
 
 ---
 
-# 10.8 payment_issue_refund
+## 10.9 payment_issue_refund
 
 Purpose:
 
@@ -531,18 +632,21 @@ Input:
 
 ```text
 orderId
-amount
 ```
 
-Basic backend rule:
+The server must retrieve the order, customer, and tier policy and calculate the permitted refund itself. Codex does not supply or control the financial amount.
+
+Authoritative backend rule:
 
 ```text
-amount <= $1,000
+recommendedRefund <= policy.maxAutoRefund
 → create refund
 
-amount > $1,000
+recommendedRefund > policy.maxAutoRefund
 → create approval request
 ```
+
+`refundPolicies.maxAutoRefund` is the single source of truth for autonomous refund thresholds. There is no separate universal `$1,000` limit.
 
 If the refund exceeds the limit, return:
 
@@ -556,25 +660,44 @@ If permitted:
 status: COMPLETED
 ```
 
-Annotations should indicate that this is a write operation.
+The operation must be safe to retry:
+
+* if the order already has a completed refund, return the existing refund and do not create another;
+* if the order already has any approval request, return the existing approval and do not create another;
+* record whether the result was newly created or already existed.
+
+Annotations:
+
+```text
+readOnlyHint: false
+destructiveHint: true
+idempotentHint: true
+openWorldHint: false
+```
+
+`idempotentHint` is true because the required server-side duplicate protection makes repeated calls with the same `orderId` return the existing result without an additional financial effect.
 
 ---
 
-# 10.9 ticketing_get_ticket
+## 10.10 ticketing_search_tickets
 
 Purpose:
 
-Retrieve the support ticket associated with an order.
+Search support tickets by order IDs and/or status.
 
 Input:
 
 ```text
-orderId
+orderIds (optional)
+status (optional)
+limit (optional, bounded)
 ```
+
+An order may have multiple tickets, so this tool returns a list. At least one filter must be provided.
 
 ---
 
-# 10.10 ticketing_update_ticket
+## 10.11 ticketing_update_ticket
 
 Purpose:
 
@@ -587,6 +710,8 @@ ticketId
 status
 note
 ```
+
+`note` must be appended to the existing notes rather than replacing them. The response should return the updated ticket status and notes.
 
 This tool modifies enterprise state.
 
@@ -605,7 +730,10 @@ Example conceptual response:
 {
   "orderId": "ORD-1024",
   "customerId": "CUS-004",
-  "total": 4200,
+  "total": {
+    "amountMinor": 420000,
+    "currency": "USD"
+  },
   "status": "SHIPPED",
   "shipmentId": "SHP-031"
 }
@@ -637,8 +765,8 @@ Use erp_search_orders to find available orders.
 Another example:
 
 ```text
-Refund cannot be executed because the amount exceeds the $1,000 autonomous limit.
-An approval request has been created.
+Refund cannot be executed automatically because the recommended amount of $1,300 exceeds the Gold policy limit of $1,000.
+Approval APR-0012 has been created. Open the Approvals page to approve or reject it.
 ```
 
 ---
@@ -650,6 +778,7 @@ Every MCP tool call should create an `mcpLogs` record.
 Log:
 
 * tool name
+* primary target ID when one exists
 * input
 * result summary
 * success/failure
@@ -679,7 +808,7 @@ $420
 SUCCESS
 ```
 
-This provides enough observability for the assignment demo.
+This provides enough observability for the live demo. Codex displays its tool calls during the task, while the MCP Activity page provides the persisted, audience-friendly audit trail after a manual refresh.
 
 ---
 
@@ -813,6 +942,8 @@ This is one of the most important presentation pages.
 
 Display all MCP calls in chronological order.
 
+The page does not need real-time updates. During the demonstration, Codex shows tool calls in its task UI. After a scenario finishes, the presenter refreshes this page to show the persisted audit trail.
+
 Example:
 
 ```text
@@ -854,7 +985,7 @@ Use shadcn components:
 
 # 22. Approval Page
 
-When a refund exceeds $1,000, show:
+When a recommended refund exceeds the customer's tier-specific `maxAutoRefund`, show:
 
 ```text
 Pending Approval
@@ -869,7 +1000,7 @@ Status:
 Pending
 
 Reason:
-Autonomous refund limit exceeded
+Gold policy autonomous limit of $1,000 exceeded
 
 [Approve]
 [Reject]
@@ -878,7 +1009,9 @@ Autonomous refund limit exceeded
 Approve should:
 
 * update approval status;
-* create the refund.
+* create the refund;
+* perform both changes in one database transaction;
+* return the existing refund without duplication if the action is repeated.
 
 Reject should:
 
@@ -900,13 +1033,13 @@ This should require multiple MCP calls.
 Expected tools may include:
 
 ```text
+crm_search_customers
 erp_search_orders
-crm_get_customer
-logistics_get_shipment
-ticketing_get_ticket
+logistics_search_shipments
+ticketing_search_tickets
 ```
 
-The lecturer should see those calls appear in MCP Activity.
+The lecturer should see the calls in Codex while the task runs and in MCP Activity after refreshing the page.
 
 ---
 
@@ -932,13 +1065,13 @@ Calculate refund
 Issue refund
 ```
 
-The refund appears on the frontend.
+The refund appears on the frontend after refreshing the page. Repeating the request must return the existing refund rather than create a duplicate.
 
 ---
 
 # 25. Presentation Scenario 3 — Human Approval
 
-Ask Codex to process an eligible refund where the amount exceeds $1,000.
+Ask Codex to process an eligible refund where the recommended amount exceeds that customer's tier-specific `maxAutoRefund`.
 
 Expected:
 
@@ -947,6 +1080,9 @@ payment_issue_refund
 
 Requested:
 $1,300
+
+Policy limit:
+$1,000
 
 Result:
 APPROVAL_REQUIRED
@@ -957,6 +1093,8 @@ Open the Approvals page.
 Approve the request manually.
 
 Show that the refund is then created.
+
+Repeating the approval action or the original Codex request must not create a duplicate refund or approval.
 
 This demonstrates human-in-the-loop governance without adding unnecessary complexity.
 
@@ -1022,161 +1160,112 @@ lib/
 
 # 27. Development Plan
 
-## Phase 1 — Project Setup
+## Phase 0 — Lock the Golden Demo Contracts
 
-Set up:
+Document the exact seeded records and expected outcomes for the three presentation scenarios before implementation.
 
-* Next.js
-* TypeScript
-* Tailwind
-* shadcn/ui
-* Neon
-* Drizzle
+For each scenario, record:
 
-Create the database schema.
-
-Run migrations.
-
-Seed mock data.
+* the natural-language prompt shown to Codex;
+* the records Codex should discover;
+* the expected tool-call sequence;
+* the final answer or database change;
+* the MCP Activity rows visible after refresh;
+* the safe result of an accidental repeat.
 
 ### Success condition
 
-The application can successfully read mock enterprise data from Neon using Drizzle.
+Each live-demo scenario has one deterministic, independently verifiable expected result without requiring hardcoded IDs inside any tool.
 
 ---
 
-# Phase 2 — Basic Frontend
+## Phase 1 — Minimal Data Foundation
 
-Build:
-
-* sidebar
-* dashboard
-* customers
-* orders
-* shipments
-* refunds
-* tickets
-
-Use shadcn/ui tables and cards.
-
-Do not spend significant time on visual polish.
-
-### Success condition
-
-All mock enterprise data can be inspected through the frontend.
-
----
-
-# Phase 3 — Enterprise Services
-
-Build:
+The Next.js, TypeScript, Tailwind, and shadcn/ui scaffold already exists. Add Neon and Drizzle, then implement only the schema and deterministic seed data required for the first read-only walking skeleton:
 
 ```text
-crm.ts
-erp.ts
-logistics.ts
-payments.ts
-policies.ts
-ticketing.ts
+customers
+orders
+shipments
+mcpLogs
 ```
 
-Test these service functions directly.
+Establish the monetary representation, constraints, migrations, and repeatable seed command now. Expand the remaining tables after the walking skeleton is proven.
 
 ### Success condition
 
-The application can search and update enterprise data without MCP.
+The application can retrieve the first golden-scenario records from Neon through Drizzle, and rerunning the seed process produces a known clean demo state.
 
 ---
 
-# Phase 4 — Read-Only MCP Server
+## Phase 2 — First Enterprise Services
 
-Create the remote MCP endpoint:
+Implement the minimum read-only service functions needed to find the seeded customer, their orders, and relevant shipments. Test these functions directly without MCP.
 
-```text
-/api/mcp
-```
+### Success condition
 
-Use:
+The service layer can complete the first lookup flow through typed Drizzle queries without exposing database access to the MCP layer.
 
-* TypeScript MCP SDK
-* Streamable HTTP
-* Zod schemas
-* structured responses
-* tool annotations
+---
+
+## Phase 3 — Read-Only MCP Walking Skeleton
+
+Create `/api/mcp` using the TypeScript MCP SDK, stateless Streamable HTTP, bearer-token authentication, Zod input schemas, output schemas, structured content, annotations, actionable errors, and MCP logging.
 
 Initially expose only:
 
 ```text
 crm_search_customers
-crm_get_customer
-
 erp_search_orders
-erp_get_order
-
-logistics_get_shipment
-
-policy_get_refund_policy
-policy_calculate_refund
-
-ticketing_get_ticket
+logistics_search_shipments
 ```
 
-### Success condition
-
-An MCP client can discover and execute all read-only tools.
-
----
-
-# Phase 5 — MCP Inspector Testing
-
-Before connecting Codex, test the MCP server using MCP Inspector.
-
-Verify:
-
-* tool discovery;
-* schemas;
-* tool descriptions;
-* successful calls;
-* structured output;
-* error messages.
+Deploy this walking skeleton early rather than waiting for the complete application.
 
 ### Success condition
 
-Every MCP tool works reliably in MCP Inspector.
+MCP Inspector can authenticate, discover the three tools, execute the first golden flow, validate the structured outputs, and show useful errors for invalid input or missing records.
 
 ---
 
-# Phase 6 — Codex Connection
+## Phase 4 — Early Codex Connection
 
-Connect Codex to the deployed MCP server.
+Connect Codex to the deployed MCP endpoint immediately and test increasingly complex prompts:
 
-Test increasingly complex requests.
+1. Find customer Northstar.
+2. Show Northstar's orders.
+3. Identify which of those orders are delayed.
 
-### Test 1
-
-> Find customer Northstar.
-
-### Test 2
-
-> Show Northstar's orders.
-
-### Test 3
-
-> Which of their orders are delayed?
-
-### Test 4
-
-> Find delayed Gold-tier customer orders and calculate the refund allowed by policy.
+Do not tell Codex which tools to call.
 
 ### Success condition
 
-Codex chooses the appropriate MCP tools without being explicitly told which tools to use.
-
-This is the highest-priority success criterion for the demo.
+Codex independently discovers and composes the tools, gives the expected answer, and the persisted calls appear in MCP Activity data. This is the first critical go/no-go milestone.
 
 ---
 
-# Phase 7 — Write Tools
+## Phase 5 — Complete the Read-Only Domain
+
+Expand the schema, seed data, services, and read-only tools for policies and tickets:
+
+```text
+crm_get_customer
+erp_get_order
+logistics_get_shipment
+policy_get_refund_policy
+policy_calculate_refund
+ticketing_search_tickets
+```
+
+Run MCP Inspector checks and the complete cross-system Scenario 1 through Codex.
+
+### Success condition
+
+Codex completes Scenario 1 with a small number of meaningful calls and calculates the correct policy result for representative orders.
+
+---
+
+## Phase 6 — Write Tools and Duplicate Protection
 
 Add:
 
@@ -1185,73 +1274,62 @@ payment_issue_refund
 ticketing_update_ticket
 ```
 
-Implement only one important control:
+The refund service must validate eligibility, calculate the amount on the server, and compare it with the customer's tier-specific `maxAutoRefund`. Add database-backed duplicate protection for refunds and approval requests in any status. Log every call.
+
+### Success condition
+
+Codex can modify Neon-backed enterprise data through MCP, repeated requests do not create duplicates, and Scenario 2 succeeds.
+
+---
+
+## Phase 7 — Approval Transaction
+
+Implement approval and rejection actions. Approval resolution and refund creation must be atomic. Repeating an approval action must return the already-resolved result safely.
+
+### Success condition
+
+Scenario 3 creates one pending approval above the applicable tier limit; manual approval creates exactly one refund, and rejection creates none.
+
+---
+
+## Phase 8 — Presentation Frontend
+
+Build the simple shadcn/ui application around the proven backend:
 
 ```text
-refund <= $1,000
-→ execute
-
-refund > $1,000
-→ approval required
+Dashboard
+Customers
+Orders
+Shipments
+Refunds
+Tickets
+MCP Activity
+Approvals
 ```
 
-Log every call.
+Prioritize MCP Activity and Approvals first. Manual page refresh is the accepted update mechanism. Do not add real-time infrastructure or spend significant time on visual polish.
 
 ### Success condition
 
-Codex can modify Neon-backed enterprise data through MCP.
+After each Codex scenario, refreshing the relevant page clearly shows the calls, refund, or approval state to the audience.
 
 ---
 
-# Phase 8 — MCP Activity + Approvals
+## Phase 9 — Deployment and Presentation Hardening
 
-Build:
+Deploy the complete Next.js application and MCP endpoint to Vercel. Configure the Neon database URL, MCP bearer token, and other required environment variables.
 
-* MCP Activity page
-* Approvals page
-
-Every MCP invocation should appear in the activity view.
-
-High-value refunds should appear in Approvals.
-
-### Success condition
-
-The web frontend visibly reflects Codex activity.
-
----
-
-# Phase 9 — Vercel Deployment
-
-Deploy:
-
-```text
-Next.js
-MCP endpoint
-Frontend
-```
-
-Connect production environment variables:
-
-* Neon database URL
-* other required secrets
-
-Verify the remote MCP endpoint from the deployed Vercel URL.
-
-### Success condition
-
-Codex can connect to the Vercel-hosted MCP server.
-
----
-
-# Phase 10 — Presentation Testing
-
-Test these three scenarios repeatedly:
+Reset to the deterministic seed state, then rehearse all three scenarios repeatedly:
 
 1. Multi-system data lookup.
-2. Successful refund below $1,000.
-3. Refund above $1,000 requiring human approval.
+2. Successful refund within the applicable tier's autonomous limit.
+3. Refund above the applicable tier's autonomous limit requiring human approval.
 
-Do not add new features unless one of these workflows is already reliable.
+Prepare a short reset procedure and fallback prompts for the live demonstration. Do not add new features unless all three workflows are already reliable.
+
+### Success condition
+
+Codex can connect to the deployed endpoint and all three golden scenarios succeed from a clean seed state in repeated rehearsals.
 
 ---
 
@@ -1261,7 +1339,7 @@ When using an AI coding agent, give it one phase at a time.
 
 Use this recurring instruction:
 
-> Maintain a clean separation between the MCP layer, enterprise service functions, Drizzle database access, and frontend. Codex must access enterprise data only through MCP tools. Use TypeScript, Zod, Drizzle ORM, Neon PostgreSQL, and shadcn/ui. Prioritize reliable MCP behavior over additional frontend features.
+> Maintain a clean separation between the MCP layer, enterprise service functions, Drizzle database access, and frontend. Codex must access enterprise data only through MCP tools. Use TypeScript, Zod, Drizzle ORM, Neon PostgreSQL, and shadcn/ui. Treat each tier's `maxAutoRefund` as authoritative, calculate refunds on the server, and make repeated write requests safe. Prioritize reliable MCP behavior and the current golden demo contract over additional frontend features.
 
 After every phase, require the coding agent to:
 
@@ -1289,7 +1367,8 @@ Do not build:
 * model training;
 * complex prompt-injection detection;
 * production SIEM;
-* WebSockets unless genuinely needed.
+* WebSockets, polling, or server-sent events for frontend activity updates;
+* frontend features that do not make one of the three live-demo scenarios clearer or more reliable.
 
 The objective is a clear and reliable MCP demonstration.
 
@@ -1303,21 +1382,29 @@ The objective is a clear and reliable MCP demonstration.
 * [ ] Drizzle ORM is configured.
 * [ ] Database schema is migrated.
 * [ ] Mock enterprise data is seeded.
+* [ ] Golden demo records and expected results are documented.
+* [ ] Seed data can be reset to a deterministic clean demo state.
 * [ ] Enterprise data pages work.
 * [ ] `/api/mcp` is a working MCP endpoint.
 * [ ] MCP uses Streamable HTTP.
+* [ ] The deployed MCP endpoint requires the configured bearer token.
 * [ ] Tools use Zod input schemas.
+* [ ] Tools provide structured content and output schemas where practical.
 * [ ] Tools use clear enterprise-prefixed names.
 * [ ] Read tools work in MCP Inspector.
 * [ ] Codex connects to the deployed MCP server.
 * [ ] Codex discovers MCP tools.
 * [ ] Codex successfully composes multiple MCP calls.
 * [ ] Refund tool writes to Neon.
+* [ ] Refund amounts are calculated and validated on the server.
+* [ ] Monetary values use integer minor units.
+* [ ] Repeated refund and approval actions do not create duplicates.
 * [ ] Ticket update tool writes to Neon.
 * [ ] Every MCP tool call is logged.
-* [ ] MCP Activity page displays calls.
-* [ ] Refunds above $1,000 generate approval requests.
+* [ ] MCP Activity page displays calls after a manual refresh.
+* [ ] Refunds above the applicable tier's `maxAutoRefund` generate approval requests.
 * [ ] Approval can be approved or rejected.
+* [ ] Approval and refund creation occur in one transaction.
 * [ ] Application is deployed to Vercel.
 * [ ] Three presentation scenarios work reliably.
 
@@ -1326,23 +1413,25 @@ The objective is a clear and reliable MCP demonstration.
 If time becomes limited, prioritize work in this exact order:
 
 ```text
-1. Neon + Drizzle
+1. Golden demo contracts
         ↓
-2. Enterprise Services
+2. Minimal Neon + Drizzle data foundation
         ↓
-3. MCP Server
+3. First enterprise services
         ↓
-4. MCP Inspector
+4. Read-only MCP walking skeleton
         ↓
-5. Codex Connection
+5. MCP Inspector
         ↓
-6. MCP Write Operations
+6. Early Codex connection
         ↓
-7. MCP Activity
+7. Complete read tools
         ↓
-8. Approval Demo
+8. MCP write operations + approval safety
         ↓
-9. Frontend Polish
+9. MCP Activity + Approvals UI
+        ↓
+10. Remaining presentation frontend
 ```
 
 **The prototype is successful if Codex can reliably use the MCP server to discover, read, and modify the simulated enterprise environment while the frontend clearly shows what happened.**
