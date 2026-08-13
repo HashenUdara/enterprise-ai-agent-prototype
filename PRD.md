@@ -329,6 +329,142 @@ The objective is to allow Codex to discover records dynamically.
 
 The named demo records must be deterministic and documented, but the tools must discover them through normal searches. Tool implementations must not contain hardcoded customer or order IDs.
 
+## 6.1 Golden Demo Policies
+
+The three policies below are fixed demo inputs. All monetary amounts are integer USD cents.
+
+| Tier | Refund percentage | Maximum autonomous refund |
+|---|---:|---:|
+| Gold | 20% | `100000` ($1,000) |
+| Silver | 10% | `50000` ($500) |
+| Standard | 5% | `25000` ($250) |
+
+## 6.2 Golden Demo Records
+
+These records make the live scenarios deterministic. Additional seed data should provide realistic variety but must not create additional matches for the golden scenario conditions.
+
+### Customers
+
+| ID | Name | Tier | Status | Purpose |
+|---|---|---|---|---|
+| `CUS-001` | Northstar Industries | Gold | `ACTIVE` | Scenario 1: delayed order with an open ticket |
+| `CUS-002` | Meridian Health | Gold | `ACTIVE` | Scenario 1: delayed order without an open ticket |
+| `CUS-004` | Silverline Retail | Silver | `ACTIVE` | Scenario 2: autonomous refund |
+| `CUS-007` | Atlas Manufacturing | Gold | `ACTIVE` | Scenarios 1 and 3: approval-required refund |
+
+### Orders and shipments
+
+| Order | Customer | Total | Order status | Shipment | Shipment status | Delay days | Purpose |
+|---|---|---:|---|---|---|---:|---|
+| `ORD-1024` | `CUS-001` | `420000` ($4,200) | `SHIPPED` | `SHP-031` | `DELAYED` | 4 | Scenario 1 positive open-ticket match |
+| `ORD-1025` | `CUS-001` | `180000` ($1,800) | `SHIPPED` | `SHP-032` | `IN_TRANSIT` | 0 | Scenario 1 non-delayed contrast |
+| `ORD-1042` | `CUS-002` | `250000` ($2,500) | `SHIPPED` | `SHP-041` | `DELAYED` | 2 | Scenario 1 delayed order without an open ticket |
+| `ORD-1050` | `CUS-004` | `320000` ($3,200) | `SHIPPED` | `SHP-050` | `DELAYED` | 3 | Scenario 2; 10% refund is $320 |
+| `ORD-1060` | `CUS-007` | `650000` ($6,500) | `SHIPPED` | `SHP-060` | `DELAYED` | 5 | Scenario 3; 20% refund is $1,300 |
+
+### Tickets
+
+| ID | Order | Customer | Status | Purpose |
+|---|---|---|---|---|
+| `TKT-009` | `ORD-1024` | `CUS-001` | `OPEN` | The only open ticket attached to a delayed Gold-tier order |
+| `TKT-010` | `ORD-1042` | `CUS-002` | `RESOLVED` | Confirms that a delayed order does not necessarily have an open ticket |
+
+At the clean demo baseline, `ORD-1050` and `ORD-1060` must have no refund and no approval request. No other seeded Gold-tier order may combine a delayed shipment with an open ticket.
+
+## 6.3 Golden Demo Contract — Scenario 1
+
+Prompt:
+
+> Find delayed orders belonging to Gold-tier customers and tell me which ones have open tickets.
+
+Required tool composition:
+
+```text
+crm_search_customers({ tier: "GOLD" })
+  → erp_search_orders({ customerIds: [...] })
+  → logistics_search_shipments({ orderIds: [...], status: "DELAYED" })
+  → ticketing_search_tickets({ orderIds: [...], status: "OPEN" })
+```
+
+Expected answer:
+
+* delayed Gold-tier orders: `ORD-1024`, `ORD-1042`, and `ORD-1060`;
+* only `ORD-1024` has an open ticket: `TKT-009`;
+* `ORD-1042` and `ORD-1060` have no open tickets.
+
+Expected activity after refresh: one successful row for each of the four required tools. Codex may make an additional read-only detail call, but the answer must remain the same. Repeating this scenario causes no data mutation.
+
+## 6.4 Golden Demo Contract — Scenario 2
+
+Prompt:
+
+> Find Silverline Retail's delayed order and process the appropriate refund according to enterprise policy if it is within the autonomous limit.
+
+Required tool composition:
+
+```text
+crm_search_customers({ query: "Silverline Retail" })
+  → erp_search_orders({ customerId: "CUS-004" })
+  → logistics_search_shipments({ orderIds: ["ORD-1050"], status: "DELAYED" })
+  → policy_calculate_refund({ orderId: "ORD-1050" })
+  → payment_issue_refund({ orderId: "ORD-1050" })
+```
+
+Expected calculation and mutation:
+
+```text
+$3,200 × 10% = $320
+$320 <= Silver maxAutoRefund of $500
+→ create one COMPLETED refund for ORD-1050 with amountMinor 32000
+```
+
+Expected activity after refresh: one successful row for each required tool, with `payment_issue_refund` showing `COMPLETED`. The Refunds page shows exactly one $320 refund for `ORD-1050`.
+
+If the entire prompt is repeated, Codex may report that the order is no longer eligible because it has already been refunded. If `payment_issue_refund` is called again directly, it must return the existing refund with `created: false`. Neither path may create another refund or approval.
+
+## 6.5 Golden Demo Contract — Scenario 3
+
+Prompt:
+
+> Find Atlas Manufacturing's delayed order and process the appropriate refund according to enterprise policy.
+
+Required tool composition:
+
+```text
+crm_search_customers({ query: "Atlas Manufacturing" })
+  → erp_search_orders({ customerId: "CUS-007" })
+  → logistics_search_shipments({ orderIds: ["ORD-1060"], status: "DELAYED" })
+  → policy_calculate_refund({ orderId: "ORD-1060" })
+  → payment_issue_refund({ orderId: "ORD-1060" })
+```
+
+Expected calculation and initial mutation:
+
+```text
+$6,500 × 20% = $1,300
+$1,300 > Gold maxAutoRefund of $1,000
+→ create one PENDING approval for ORD-1060 with amountMinor 130000
+→ return APPROVAL_REQUIRED without creating a refund
+```
+
+After refresh, MCP Activity shows the required calls, Approvals shows one pending $1,300 request for `ORD-1060`, and Refunds shows no refund for that order.
+
+When the presenter approves the request, the application must atomically mark the approval `APPROVED` and create exactly one completed $1,300 refund. After refresh, Approvals and Refunds must show those final states.
+
+Repeating the Codex prompt, refund tool call, or approval action must return the existing state and must not create a second approval or refund.
+
+## 6.6 Demo Reset Contract
+
+Before every complete rehearsal and before the live presentation, run the deterministic reset/seed process. The clean baseline must:
+
+* restore all golden customers, orders, shipments, policies, and tickets to the values above;
+* remove the Scenario 2 refund for `ORD-1050`;
+* remove the Scenario 3 approval and refund for `ORD-1060`;
+* clear MCP activity generated by earlier rehearsals;
+* preserve unrelated schema and configuration.
+
+The reset must be an explicit presenter action and must never be exposed as an MCP tool.
+
 ---
 
 # 7. Enterprise Service Layer
@@ -666,6 +802,8 @@ The operation must be safe to retry:
 * if the order already has any approval request, return the existing approval and do not create another;
 * record whether the result was newly created or already existed.
 
+Existing-refund and existing-approval checks must run before ordinary eligibility validation so retries return the prior result instead of a misleading ineligible-order error.
+
 Annotations:
 
 ```text
@@ -991,10 +1129,10 @@ When a recommended refund exceeds the customer's tier-specific `maxAutoRefund`, 
 Pending Approval
 
 Order:
-ORD-1056
+ORD-1060
 
 Refund:
-$1,450
+$1,300
 
 Status:
 Pending
@@ -1047,7 +1185,7 @@ The lecturer should see the calls in Codex while the task runs and in MCP Activi
 
 Ask Codex:
 
-> Find an eligible delayed order and process the appropriate refund according to enterprise policy if it is within the autonomous limit.
+> Find Silverline Retail's delayed order and process the appropriate refund according to enterprise policy if it is within the autonomous limit.
 
 Expected flow:
 
@@ -1071,7 +1209,9 @@ The refund appears on the frontend after refreshing the page. Repeating the requ
 
 # 25. Presentation Scenario 3 — Human Approval
 
-Ask Codex to process an eligible refund where the recommended amount exceeds that customer's tier-specific `maxAutoRefund`.
+Ask Codex:
+
+> Find Atlas Manufacturing's delayed order and process the appropriate refund according to enterprise policy.
 
 Expected:
 
