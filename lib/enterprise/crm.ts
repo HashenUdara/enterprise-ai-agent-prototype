@@ -3,6 +3,7 @@ import { and, asc, eq, ilike } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { customers, customerTier } from "@/lib/db/schema"
 import {
+  EnterpriseValidationError,
   escapeLikePattern,
   normalizeLimit,
   normalizeOptionalText,
@@ -20,7 +21,7 @@ export async function searchCustomers(input: SearchCustomersInput) {
   const query = normalizeOptionalText(input.query)
 
   if (!query && !input.tier) {
-    throw new Error(
+    throw new EnterpriseValidationError(
       "Customer search requires a name query or tier. Provide query, tier, or both."
     )
   }

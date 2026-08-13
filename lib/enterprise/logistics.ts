@@ -2,7 +2,11 @@ import { and, asc, eq, gte, inArray } from "drizzle-orm"
 
 import { db } from "@/lib/db"
 import { shipments, shipmentStatus } from "@/lib/db/schema"
-import { normalizeIds, normalizeLimit } from "@/lib/enterprise/query-helpers"
+import {
+  EnterpriseValidationError,
+  normalizeIds,
+  normalizeLimit,
+} from "@/lib/enterprise/query-helpers"
 
 export type ShipmentStatus = (typeof shipmentStatus.enumValues)[number]
 
@@ -20,7 +24,9 @@ export async function searchShipments(input: SearchShipmentsInput) {
     input.minimumDelayDays !== undefined &&
     (!Number.isInteger(input.minimumDelayDays) || input.minimumDelayDays < 0)
   ) {
-    throw new Error("minimumDelayDays must be a non-negative integer.")
+    throw new EnterpriseValidationError(
+      "minimumDelayDays must be a non-negative integer."
+    )
   }
 
   if (
@@ -28,7 +34,7 @@ export async function searchShipments(input: SearchShipmentsInput) {
     !input.status &&
     input.minimumDelayDays === undefined
   ) {
-    throw new Error(
+    throw new EnterpriseValidationError(
       "Shipment search requires order IDs, shipment status, or minimum delay days."
     )
   }

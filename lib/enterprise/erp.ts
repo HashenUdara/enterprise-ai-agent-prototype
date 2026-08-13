@@ -3,6 +3,7 @@ import { and, asc, eq, inArray } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { orders, orderStatus } from "@/lib/db/schema"
 import {
+  EnterpriseValidationError,
   normalizeIds,
   normalizeLimit,
   normalizeOptionalText,
@@ -25,7 +26,7 @@ export async function searchOrders(input: SearchOrdersInput) {
   )
 
   if (customerIds.length === 0 && !input.status) {
-    throw new Error(
+    throw new EnterpriseValidationError(
       "Order search requires a customer ID, customer IDs, or order status."
     )
   }
@@ -53,6 +54,7 @@ export async function searchOrders(input: SearchOrdersInput) {
     .then((rows) =>
       rows.map((row) => ({
         ...row,
+        createdAt: row.createdAt.toISOString(),
         currency: "USD" as const,
       }))
     )

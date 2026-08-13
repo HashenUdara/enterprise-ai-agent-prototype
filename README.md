@@ -36,6 +36,25 @@ bun run enterprise:verify
 
 The service modules live under `lib/enterprise`. They own typed enterprise queries and validation; the later MCP layer will call these functions instead of querying Drizzle directly.
 
+## MCP endpoint
+
+The stateless Streamable HTTP endpoint is available at `/api/mcp`. It requires:
+
+```env
+MCP_BEARER_TOKEN=replace-with-a-long-random-secret
+MCP_ALLOWED_ORIGINS=localhost,127.0.0.1,your-app.vercel.app
+```
+
+`MCP_ALLOWED_ORIGINS` contains hostnames, not full URLs. Requests without an `Origin` header are accepted after bearer authentication; requests that provide `Origin` must match this allowlist.
+
+Verify authentication, Origin rejection, tool discovery, structured tool calls, golden results, and database logging without starting the Next.js server:
+
+```bash
+bun run mcp:verify
+```
+
+The verification calls create three MCP Activity records. Run `bun run db:seed` afterward when you want to restore the clean presentation baseline.
+
 When the schema changes, generate and review a new SQL migration before applying it:
 
 ```bash

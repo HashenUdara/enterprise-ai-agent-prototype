@@ -1,6 +1,13 @@
 export const DEFAULT_SEARCH_LIMIT = 20
 export const MAX_SEARCH_LIMIT = 50
 
+export class EnterpriseValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "EnterpriseValidationError"
+  }
+}
+
 export function normalizeLimit(limit?: number) {
   const normalized = limit ?? DEFAULT_SEARCH_LIMIT
 
@@ -9,7 +16,7 @@ export function normalizeLimit(limit?: number) {
     normalized < 1 ||
     normalized > MAX_SEARCH_LIMIT
   ) {
-    throw new Error(
+    throw new EnterpriseValidationError(
       `limit must be an integer between 1 and ${MAX_SEARCH_LIMIT}.`
     )
   }
@@ -35,7 +42,9 @@ export function normalizeIds(
   ]
 
   if (normalized.length > MAX_SEARCH_LIMIT) {
-    throw new Error(`${fieldName} accepts at most ${MAX_SEARCH_LIMIT} IDs.`)
+    throw new EnterpriseValidationError(
+      `${fieldName} accepts at most ${MAX_SEARCH_LIMIT} IDs.`
+    )
   }
 
   return normalized
