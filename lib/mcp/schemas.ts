@@ -300,6 +300,38 @@ export const issueRefundOutputSchema = z.discriminatedUnion("status", [
   }),
 ])
 
+export const getRefundOutcomeInputSchema = z
+  .object({
+    orderId: orderIdSchema.describe(
+      "Order whose persisted refund and approval outcome should be verified."
+    ),
+  })
+  .strict()
+
+export const getRefundOutcomeOutputSchema = z.object({
+  orderId: orderIdSchema,
+  status: z.enum(["NOT_STARTED", "PENDING_APPROVAL", "REJECTED", "COMPLETED"]),
+  currency: z.literal("USD"),
+  refund: z
+    .object({
+      refundId: z.number().int().positive(),
+      amountMinor: z.number().int().nonnegative(),
+      status: z.literal("COMPLETED"),
+      createdAt: z.iso.datetime(),
+    })
+    .nullable(),
+  approval: z
+    .object({
+      approvalId: z.number().int().positive(),
+      amountMinor: z.number().int().nonnegative(),
+      status: z.enum(["PENDING", "APPROVED", "REJECTED"]),
+      reason: z.string(),
+      createdAt: z.iso.datetime(),
+      resolvedAt: z.iso.datetime().nullable(),
+    })
+    .nullable(),
+})
+
 export const updateTicketInputSchema = z
   .object({
     ticketId: ticketIdSchema.describe(

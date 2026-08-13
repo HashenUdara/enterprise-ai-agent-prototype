@@ -3,7 +3,7 @@ import { createMcpHandler, McpServer } from "@modelcontextprotocol/server"
 import { getCustomer, searchCustomers } from "@/lib/enterprise/crm"
 import { getOrder, searchOrders } from "@/lib/enterprise/erp"
 import { getShipment, searchShipments } from "@/lib/enterprise/logistics"
-import { issueRefund } from "@/lib/enterprise/payments"
+import { getRefundOutcome, issueRefund } from "@/lib/enterprise/payments"
 import { calculateRefund, getRefundPolicy } from "@/lib/enterprise/policies"
 import { searchTickets, updateTicket } from "@/lib/enterprise/ticketing"
 import { executeLoggedTool } from "@/lib/mcp/logged-tool"
@@ -16,6 +16,8 @@ import {
   getOrderOutputSchema,
   getRefundPolicyInputSchema,
   getRefundPolicyOutputSchema,
+  getRefundOutcomeInputSchema,
+  getRefundOutcomeOutputSchema,
   getShipmentInputSchema,
   getShipmentOutputSchema,
   issueRefundInputSchema,
@@ -295,6 +297,47 @@ function createEnterpriseMcpServer() {
                 approvalId: result.approvalId,
                 approvalStatus: result.approvalStatus,
               }),
+        }),
+      })
+  )
+
+  server.registerTool(
+    "payment_get_refund_outcome",
+    {
+      title: "Get refund outcome",
+      description:
+        "Verify the persisted payment and human-approval outcome for one order. Use this after a refund attempt or approval decision to confirm final state and rule out duplicate outcomes.",
+      inputSchema: getRefundOutcomeInputSchema,
+      outputSchema: getRefundOutcomeOutputSchema,
+      annotations: readOnlyAnnotations,
+    },
+    async (input) =>
+      executeLoggedTool({
+        tool: "payment_get_refund_outcome",
+        target: input.orderId,
+        input,
+        run: () => getRefundOutcome(input.orderId),
+        formatText: (outcome) => {
+          if (outcome.status === "NOT_STARTED") {
+            return `${outcome.orderId} has no refund or approval request.`
+          }
+
+          if (outcome.status === "PENDING_APPROVAL") {
+            return `${outcome.orderId} has pending approval ${outcome.approval?.approvalId} for ${formatMoney(outcome.approval?.amountMinor ?? 0, outcome.currency)} and no refund.`
+          }
+
+          if (outcome.status === "REJECTED") {
+            return `${outcome.orderId} has rejected approval ${outcome.approval?.approvalId} and no refund.`
+          }
+
+          return `${outcome.orderId} has one completed refund ${outcome.refund?.refundId} for ${formatMoney(outcome.refund?.amountMinor ?? 0, outcome.currency)}${outcome.approval ? ` after approval ${outcome.approval.approvalId}` : " with no approval required"}.`
+        },
+        summarizeResult: (outcome) => ({
+          orderId: outcome.orderId,
+          status: outcome.status,
+          refundId: outcome.refund?.refundId ?? null,
+          approvalId: outcome.approval?.approvalId ?? null,
+          approvalStatus: outcome.approval?.status ?? null,
         }),
       })
   )

@@ -6,6 +6,7 @@ import {
   getCustomerOutputSchema,
   getOrderOutputSchema,
   getRefundPolicyOutputSchema,
+  getRefundOutcomeOutputSchema,
   getShipmentOutputSchema,
   issueRefundOutputSchema,
   searchCustomersOutputSchema,
@@ -134,6 +135,7 @@ const expectedTools = [
   "policy_get_refund_policy",
   "policy_calculate_refund",
   "payment_issue_refund",
+  "payment_get_refund_outcome",
   "ticketing_search_tickets",
   "ticketing_update_ticket",
 ]
@@ -198,11 +200,22 @@ const createdApproval = issueRefundOutputSchema.parse(
 const existingApproval = issueRefundOutputSchema.parse(
   await callTool(14, "payment_issue_refund", { orderId: "ORD-1060" })
 )
+const refundOutcome = getRefundOutcomeOutputSchema.parse(
+  await callTool(15, "payment_get_refund_outcome", { orderId: "ORD-1050" })
+)
+if (createdApproval.status !== "APPROVAL_REQUIRED") {
+  throw new Error("Expected ORD-1060 to require approval during verification.")
+}
+const { resolveApproval } = await import("@/lib/enterprise/approvals")
+await resolveApproval(createdApproval.approvalId, "APPROVE")
+const approvedRefundOutcome = getRefundOutcomeOutputSchema.parse(
+  await callTool(16, "payment_get_refund_outcome", { orderId: "ORD-1060" })
+)
 const updatedTicket = updateTicketOutputSchema.parse(
-  await callTool(15, "ticketing_update_ticket", {
+  await callTool(17, "ticketing_update_ticket", {
     ticketId: "TKT-009",
     status: "IN_PROGRESS",
-    note: "Carrier escalation opened during Phase 6 verification.",
+    note: "Operations is investigating the delayed shipment with DHL.",
   })
 )
 
@@ -232,7 +245,7 @@ const recentLogs = await db
   .select({ tool: mcpLogs.tool, status: mcpLogs.status })
   .from(mcpLogs)
   .orderBy(desc(mcpLogs.id))
-  .limit(14)
+  .limit(16)
 
 const actual = {
   tools: listedTools,
@@ -278,13 +291,25 @@ const actual = {
       amountMinor: existingApproval.amountMinor,
     },
   ],
+  refundOutcome: {
+    status: refundOutcome.status,
+    orderId: refundOutcome.orderId,
+    refundAmountMinor: refundOutcome.refund?.amountMinor,
+    approval: refundOutcome.approval,
+  },
+  approvedRefundOutcome: {
+    status: approvedRefundOutcome.status,
+    orderId: approvedRefundOutcome.orderId,
+    refundAmountMinor: approvedRefundOutcome.refund?.amountMinor,
+    approvalStatus: approvedRefundOutcome.approval?.status,
+  },
   persistedWrites: {
     refunds: refundCount[0]?.count ?? 0,
     approvals: approvalCount[0]?.count ?? 0,
     ticketStatus: storedTicket[0]?.status,
     ticketNoteAppended:
       storedTicket[0]?.notes.endsWith(
-        "Carrier escalation opened during Phase 6 verification."
+        "Operations is investigating the delayed shipment with DHL."
       ) ?? false,
     returnedTicketMatches:
       updatedTicket.status === storedTicket[0]?.status &&
@@ -339,8 +364,20 @@ const expected = {
       amountMinor: 130_000,
     },
   ],
+  refundOutcome: {
+    status: "COMPLETED",
+    orderId: "ORD-1050",
+    refundAmountMinor: 32_000,
+    approval: null,
+  },
+  approvedRefundOutcome: {
+    status: "COMPLETED",
+    orderId: "ORD-1060",
+    refundAmountMinor: 130_000,
+    approvalStatus: "APPROVED",
+  },
   persistedWrites: {
-    refunds: 4,
+    refunds: 5,
     approvals: 1,
     ticketStatus: "IN_PROGRESS",
     ticketNoteAppended: true,
@@ -348,6 +385,8 @@ const expected = {
   },
   recentLogs: [
     { tool: "ticketing_update_ticket", status: "SUCCESS" },
+    { tool: "payment_get_refund_outcome", status: "SUCCESS" },
+    { tool: "payment_get_refund_outcome", status: "SUCCESS" },
     { tool: "payment_issue_refund", status: "SUCCESS" },
     { tool: "payment_issue_refund", status: "SUCCESS" },
     { tool: "payment_issue_refund", status: "SUCCESS" },

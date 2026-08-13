@@ -20,13 +20,13 @@ The prototype makes the complete agent-to-enterprise path visible: Codex calls a
 
 ## Operating Context
 
-The product is presented live from a deployed Next.js application alongside Codex. The presenter runs three deterministic scenarios, then manually refreshes the relevant page to show persisted MCP activity, refunds, and approvals. Reliability, audience legibility, and quick recovery matter more than real-time behavior or broad feature depth.
+The product is presented live from a deployed Next.js application alongside Codex. The presenter runs a five-act deterministic narrative covering prioritization, investigation, an operational ticket update, autonomous refunding, human approval, and final verification. The presenter manually refreshes the relevant page to show persisted MCP activity and enterprise outcomes. Reliability, audience legibility, and quick recovery matter more than real-time behavior or broad feature depth.
 
 ## Capabilities and Constraints
 
 - Simulates CRM, ERP, logistics, payments, ticketing, and approval systems backed by one Neon PostgreSQL database.
 - Codex accesses enterprise data only through the authenticated Streamable HTTP MCP endpoint.
-- The application exposes Dashboard, Customers, Orders, Shipments, Refunds, Tickets, MCP Activity, and Approvals views.
+- The application exposes Dashboard, Customers, Orders, Shipments, Refunds, Tickets, MCP Activity, Approvals, connected order cases, and an Operations Brief.
 - Pending approvals can be approved or rejected in the web application; approval and refund creation remain atomic and idempotent.
 - Manual refresh is the accepted update mechanism. Polling, WebSockets, and server-sent events are out of scope.
 - Monetary values are stored as integer minor units and displayed in USD.

@@ -46,7 +46,12 @@ export default async function ShipmentsPage() {
                 <TableCell>
                   <div className="flex flex-col gap-1">
                     <span className="font-mono text-xs font-medium">
-                      {shipment.orderId}
+                      <Link
+                        href={`/cases/${shipment.orderId}`}
+                        className="underline-offset-4 hover:text-primary hover:underline"
+                      >
+                        {shipment.orderId}
+                      </Link>
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {shipment.customerName}
@@ -73,3 +78,4 @@ export default async function ShipmentsPage() {
     </div>
   )
 }
+import Link from "next/link"

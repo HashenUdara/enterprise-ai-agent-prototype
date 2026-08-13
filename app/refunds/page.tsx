@@ -1,5 +1,6 @@
 import { EmptyTable } from "@/components/empty-table"
 import { PageHeader } from "@/components/page-header"
+import { PolicyEquation } from "@/components/policy-equation"
 import { RefreshButton } from "@/components/refresh-button"
 import { StatusBadge } from "@/components/status-badge"
 import { TableShell } from "@/components/table-shell"
@@ -43,6 +44,7 @@ export default async function RefundsPage() {
                 <TableHead>Order</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Policy decision</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="pr-4 text-right">
                   Created (Sri Lanka)
@@ -56,11 +58,24 @@ export default async function RefundsPage() {
                     RFD-{String(refund.id).padStart(4, "0")}
                   </TableCell>
                   <TableCell className="font-mono text-xs">
-                    {refund.orderId}
+                    <Link
+                      href={`/cases/${refund.orderId}`}
+                      className="underline-offset-4 hover:text-primary hover:underline"
+                    >
+                      {refund.orderId}
+                    </Link>
                   </TableCell>
                   <TableCell>{refund.customerName}</TableCell>
                   <TableCell className="font-mono font-medium">
                     {formatMoney(refund.amount)}
+                  </TableCell>
+                  <TableCell>
+                    <PolicyEquation
+                      orderTotal={refund.orderTotal}
+                      refundPercentage={refund.refundPercentage}
+                      refundAmount={refund.amount}
+                      maxAutoRefund={refund.maxAutoRefund}
+                    />
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={refund.status} />
@@ -77,3 +92,4 @@ export default async function RefundsPage() {
     </div>
   )
 }
+import Link from "next/link"

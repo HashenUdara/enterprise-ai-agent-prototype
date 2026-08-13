@@ -69,7 +69,7 @@ Verify authentication, Origin rejection, tool discovery, structured tool calls, 
 bun run mcp:verify
 ```
 
-The verification calls all eleven MCP tools, exercises refund and approval duplicate protection, and confirms that ticket notes are appended. Run `bun run db:seed` afterward to restore the clean presentation baseline.
+The verification calls all twelve MCP tools, exercises refund and approval duplicate protection, verifies persisted payment outcomes, and confirms that ticket notes are appended. Run `bun run db:seed` afterward to restore the clean presentation baseline.
 
 When the schema changes, generate and review a new SQL migration before applying it:
 

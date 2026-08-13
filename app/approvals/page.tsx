@@ -1,6 +1,7 @@
 import { ApprovalActions } from "@/components/approval-actions"
 import { EmptyTable } from "@/components/empty-table"
 import { PageHeader } from "@/components/page-header"
+import { PolicyEquation } from "@/components/policy-equation"
 import { RefreshButton } from "@/components/refresh-button"
 import { StatusBadge } from "@/components/status-badge"
 import { TableShell } from "@/components/table-shell"
@@ -97,9 +98,20 @@ export default async function ApprovalsPage() {
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">
-                      Policy reason
+                      Policy decision
                     </p>
-                    <p className="mt-2 leading-6">{approval.reason}</p>
+                    <div className="mt-2">
+                      <PolicyEquation
+                        orderTotal={approval.orderTotal}
+                        refundPercentage={approval.refundPercentage}
+                        refundAmount={approval.amount}
+                        maxAutoRefund={approval.maxAutoRefund}
+                      />
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                      The recommended refund exceeds the autonomous limit, so no
+                      payment is created until a person approves it.
+                    </p>
                   </div>
                 </CardContent>
                 <CardFooter className="justify-end">
@@ -146,7 +158,12 @@ export default async function ApprovalsPage() {
                     APR-{String(approval.id).padStart(4, "0")}
                   </TableCell>
                   <TableCell className="font-mono text-xs">
-                    {approval.orderId}
+                    <Link
+                      href={`/cases/${approval.orderId}`}
+                      className="underline-offset-4 hover:text-primary hover:underline"
+                    >
+                      {approval.orderId}
+                    </Link>
                   </TableCell>
                   <TableCell>{approval.customerName}</TableCell>
                   <TableCell className="font-mono font-medium">
@@ -174,3 +191,4 @@ export default async function ApprovalsPage() {
     </div>
   )
 }
+import Link from "next/link"

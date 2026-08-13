@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { approvals, refunds } from "@/lib/db/schema"
 import { getCustomer } from "@/lib/enterprise/crm"
+import { getOrder } from "@/lib/enterprise/erp"
 import { getShipment } from "@/lib/enterprise/logistics"
 import { calculateRefund } from "@/lib/enterprise/policies"
 import {
@@ -75,6 +76,59 @@ function approvalRequiredResult(
     createdAt: approval.createdAt.toISOString(),
     resolvedAt: approval.resolvedAt?.toISOString() ?? null,
     currency: "USD" as const,
+  }
+}
+
+export async function getRefundOutcome(orderId: string) {
+  const normalizedOrderId = normalizeOptionalText(orderId)
+
+  if (!normalizedOrderId) {
+    throw new EnterpriseValidationError("orderId is required.")
+  }
+
+  await getOrder(normalizedOrderId)
+
+  const [refund, approval] = await Promise.all([
+    findExistingRefund(normalizedOrderId),
+    findExistingApproval(normalizedOrderId),
+  ])
+
+  if (approval?.approvalStatus === "APPROVED" && !refund) {
+    throw new Error(
+      `Approved request ${approval.approvalId} has no completed refund.`
+    )
+  }
+
+  const status = refund
+    ? ("COMPLETED" as const)
+    : approval?.approvalStatus === "PENDING"
+      ? ("PENDING_APPROVAL" as const)
+      : approval?.approvalStatus === "REJECTED"
+        ? ("REJECTED" as const)
+        : ("NOT_STARTED" as const)
+
+  return {
+    orderId: normalizedOrderId,
+    status,
+    currency: "USD" as const,
+    refund: refund
+      ? {
+          refundId: refund.refundId,
+          amountMinor: refund.amountMinor,
+          status: refund.refundStatus,
+          createdAt: refund.createdAt.toISOString(),
+        }
+      : null,
+    approval: approval
+      ? {
+          approvalId: approval.approvalId,
+          amountMinor: approval.amountMinor,
+          status: approval.approvalStatus,
+          reason: approval.reason,
+          createdAt: approval.createdAt.toISOString(),
+          resolvedAt: approval.resolvedAt?.toISOString() ?? null,
+        }
+      : null,
   }
 }
 

@@ -16,32 +16,32 @@ This prototype is built for a **live demonstration only**. There is no separate 
 
 During the demonstration:
 
-* Codex should visibly show the MCP tools it discovers and calls;
-* the presenter may refresh the web application to show newly persisted MCP activity and enterprise data;
-* real-time browser updates, polling, WebSockets, and server-sent events are not required;
-* reliability and a clear presentation flow are more important than feature breadth or frontend polish.
+- Codex should visibly show the MCP tools it discovers and calls;
+- the presenter may refresh the web application to show newly persisted MCP activity and enterprise data;
+- real-time browser updates, polling, WebSockets, and server-sent events are not required;
+- reliability and a clear presentation flow are more important than feature breadth or frontend polish.
 
-Before implementation, define a golden demo contract for each of the three presentation scenarios. Each contract must identify:
+Before implementation, define a golden demo contract for each presentation act. The expanded narrative contains five acts built on the original three business scenarios. Each contract must identify:
 
-* the seeded records that make the scenario possible;
-* the expected tool-call sequence;
-* the expected answer or database mutation;
-* the activity records the presenter should see after refreshing the page;
-* the expected result if the scenario is accidentally repeated.
+- the seeded records that make the scenario possible;
+- the expected tool-call sequence;
+- the expected answer or database mutation;
+- the activity records the presenter should see after refreshing the page;
+- the expected result if the scenario is accidentally repeated.
 
 ---
 
 # 2. Final Technology Stack
 
-* **Next.js**
-* **TypeScript**
-* **shadcn/ui**
-* **Drizzle ORM**
-* **Neon PostgreSQL**
-* **MCP TypeScript SDK**
-* **Zod**
-* **Vercel**
-* **Codex as the MCP client / AI agent**
+- **Next.js**
+- **TypeScript**
+- **shadcn/ui**
+- **Drizzle ORM**
+- **Neon PostgreSQL**
+- **MCP TypeScript SDK**
+- **Zod**
+- **Vercel**
+- **Codex as the MCP client / AI agent**
 
 ---
 
@@ -108,10 +108,10 @@ Represents Salesforce.
 
 Contains:
 
-* customers
-* customer tiers
-* customer contact information
-* customer status
+- customers
+- customer tiers
+- customer contact information
+- customer status
 
 ## ERP
 
@@ -119,10 +119,10 @@ Represents SAP.
 
 Contains:
 
-* customer orders
-* order totals
-* order status
-* shipment references
+- customer orders
+- order totals
+- order status
+- shipment references
 
 ## Logistics
 
@@ -130,10 +130,10 @@ Represents shipping/carrier systems.
 
 Contains:
 
-* shipments
-* tracking numbers
-* shipping status
-* delay days
+- shipments
+- tracking numbers
+- shipping status
+- delay days
 
 ## Payments
 
@@ -141,9 +141,9 @@ Represents a payment gateway.
 
 Contains:
 
-* refunds
-* refund amounts
-* refund statuses
+- refunds
+- refund amounts
+- refund statuses
 
 ## Ticketing
 
@@ -151,9 +151,9 @@ Represents Jira or ServiceNow.
 
 Contains:
 
-* customer support tickets
-* ticket status
-* notes
+- customer support tickets
+- ticket status
+- notes
 
 All prototype records are stored in one Neon PostgreSQL database.
 
@@ -259,10 +259,10 @@ resolvedAt
 
 Store and calculate every monetary value using integer minor units, such as cents. This applies to:
 
-* `orders.total`;
-* `refundPolicies.maxAutoRefund`;
-* `refunds.amount`;
-* `approvals.amount`.
+- `orders.total`;
+- `refundPolicies.maxAutoRefund`;
+- `refunds.amount`;
+- `approvals.amount`.
 
 For example, `$42.50` is stored as `4250`. Do not use JavaScript floating-point arithmetic for money. Tool responses should include the integer minor-unit value and currency code; human-readable text may format it as dollars.
 
@@ -270,21 +270,21 @@ The prototype uses `USD` for all monetary records.
 
 ## Data integrity rules
 
-* `refundPolicies.tier` must be unique.
-* Each order has at most one shipment.
-* An order may have multiple support tickets.
-* `refunds.orderId` must be unique so an order can have at most one refund in this prototype.
-* `approvals.orderId` must be unique so an order can have at most one approval request in this prototype, regardless of its final status.
-* Approval resolution and refund creation must occur in one database transaction.
+- `refundPolicies.tier` must be unique.
+- Each order has at most one shipment.
+- An order may have multiple support tickets.
+- `refunds.orderId` must be unique so an order can have at most one refund in this prototype.
+- `approvals.orderId` must be unique so an order can have at most one approval request in this prototype, regardless of its final status.
+- Approval resolution and refund creation must occur in one database transaction.
 
 ## Refund eligibility and calculation
 
 An order is eligible for the prototype refund workflow only when:
 
-* the customer is active;
-* the shipment status is `DELAYED` and `delayDays` is greater than zero;
-* the order does not already have a refund;
-* the order does not already have an approval request.
+- the customer is active;
+- the shipment status is `DELAYED` and `delayDays` is greater than zero;
+- the order does not already have a refund;
+- the order does not already have an approval request.
 
 Calculate the recommended refund from the order total and the customer's tier policy:
 
@@ -302,28 +302,28 @@ The demo must not depend on one hardcoded customer or one hardcoded order.
 
 Seed approximately:
 
-* 10–15 customers
-* 20–30 orders
-* 20–30 shipments
-* 3 customer tiers
-* 3 refund policies
-* 8–12 support tickets
-* several historical refunds
+- 10–15 customers
+- 20–30 orders
+- 20–30 shipments
+- 3 customer tiers
+- 3 refund policies
+- 8–12 support tickets
+- several historical refunds
 
 Include different scenarios:
 
-* delivered orders
-* delayed orders
-* processing orders
-* Gold-tier customers
-* Silver-tier customers
-* Standard-tier customers
-* refund-eligible orders
-* high-value orders
-* orders with open tickets
-* at least one Gold-tier delayed order with an open ticket for Scenario 1
-* at least one policy-eligible refund below that tier's `maxAutoRefund` for Scenario 2
-* at least one policy-eligible refund above that tier's `maxAutoRefund` for Scenario 3
+- delivered orders
+- delayed orders
+- processing orders
+- Gold-tier customers
+- Silver-tier customers
+- Standard-tier customers
+- refund-eligible orders
+- high-value orders
+- orders with open tickets
+- at least one Gold-tier delayed order with an open ticket for Scenario 1
+- at least one policy-eligible refund below that tier's `maxAutoRefund` for Scenario 2
+- at least one policy-eligible refund above that tier's `maxAutoRefund` for Scenario 3
 
 The objective is to allow Codex to discover records dynamically.
 
@@ -333,11 +333,11 @@ The named demo records must be deterministic and documented, but the tools must 
 
 The three policies below are fixed demo inputs. All monetary amounts are integer USD cents.
 
-| Tier | Refund percentage | Maximum autonomous refund |
-|---|---:|---:|
-| Gold | 20% | `100000` ($1,000) |
-| Silver | 10% | `50000` ($500) |
-| Standard | 5% | `25000` ($250) |
+| Tier     | Refund percentage | Maximum autonomous refund |
+| -------- | ----------------: | ------------------------: |
+| Gold     |               20% |         `100000` ($1,000) |
+| Silver   |               10% |            `50000` ($500) |
+| Standard |                5% |            `25000` ($250) |
 
 ## 6.2 Golden Demo Records
 
@@ -345,28 +345,28 @@ These records make the live scenarios deterministic. Additional seed data should
 
 ### Customers
 
-| ID | Name | Tier | Status | Purpose |
-|---|---|---|---|---|
-| `CUS-001` | Northstar Industries | Gold | `ACTIVE` | Scenario 1: delayed order with an open ticket |
-| `CUS-002` | Meridian Health | Gold | `ACTIVE` | Scenario 1: delayed order without an open ticket |
-| `CUS-004` | Silverline Retail | Silver | `ACTIVE` | Scenario 2: autonomous refund |
-| `CUS-007` | Atlas Manufacturing | Gold | `ACTIVE` | Scenarios 1 and 3: approval-required refund |
+| ID        | Name                 | Tier   | Status   | Purpose                                          |
+| --------- | -------------------- | ------ | -------- | ------------------------------------------------ |
+| `CUS-001` | Northstar Industries | Gold   | `ACTIVE` | Scenario 1: delayed order with an open ticket    |
+| `CUS-002` | Meridian Health      | Gold   | `ACTIVE` | Scenario 1: delayed order without an open ticket |
+| `CUS-004` | Silverline Retail    | Silver | `ACTIVE` | Scenario 2: autonomous refund                    |
+| `CUS-007` | Atlas Manufacturing  | Gold   | `ACTIVE` | Scenarios 1 and 3: approval-required refund      |
 
 ### Orders and shipments
 
-| Order | Customer | Total | Order status | Shipment | Shipment status | Delay days | Purpose |
-|---|---|---:|---|---|---|---:|---|
-| `ORD-1024` | `CUS-001` | `420000` ($4,200) | `SHIPPED` | `SHP-031` | `DELAYED` | 4 | Scenario 1 positive open-ticket match |
-| `ORD-1025` | `CUS-001` | `180000` ($1,800) | `SHIPPED` | `SHP-032` | `IN_TRANSIT` | 0 | Scenario 1 non-delayed contrast |
-| `ORD-1042` | `CUS-002` | `250000` ($2,500) | `SHIPPED` | `SHP-041` | `DELAYED` | 2 | Scenario 1 delayed order without an open ticket |
-| `ORD-1050` | `CUS-004` | `320000` ($3,200) | `SHIPPED` | `SHP-050` | `DELAYED` | 3 | Scenario 2; 10% refund is $320 |
-| `ORD-1060` | `CUS-007` | `650000` ($6,500) | `SHIPPED` | `SHP-060` | `DELAYED` | 5 | Scenario 3; 20% refund is $1,300 |
+| Order      | Customer  |             Total | Order status | Shipment  | Shipment status | Delay days | Purpose                                         |
+| ---------- | --------- | ----------------: | ------------ | --------- | --------------- | ---------: | ----------------------------------------------- |
+| `ORD-1024` | `CUS-001` | `420000` ($4,200) | `SHIPPED`    | `SHP-031` | `DELAYED`       |          4 | Scenario 1 positive open-ticket match           |
+| `ORD-1025` | `CUS-001` | `180000` ($1,800) | `SHIPPED`    | `SHP-032` | `IN_TRANSIT`    |          0 | Scenario 1 non-delayed contrast                 |
+| `ORD-1042` | `CUS-002` | `250000` ($2,500) | `SHIPPED`    | `SHP-041` | `DELAYED`       |          2 | Scenario 1 delayed order without an open ticket |
+| `ORD-1050` | `CUS-004` | `320000` ($3,200) | `SHIPPED`    | `SHP-050` | `DELAYED`       |          3 | Scenario 2; 10% refund is $320                  |
+| `ORD-1060` | `CUS-007` | `650000` ($6,500) | `SHIPPED`    | `SHP-060` | `DELAYED`       |          5 | Scenario 3; 20% refund is $1,300                |
 
 ### Tickets
 
-| ID | Order | Customer | Status | Purpose |
-|---|---|---|---|---|
-| `TKT-009` | `ORD-1024` | `CUS-001` | `OPEN` | The only open ticket attached to a delayed Gold-tier order |
+| ID        | Order      | Customer  | Status     | Purpose                                                                |
+| --------- | ---------- | --------- | ---------- | ---------------------------------------------------------------------- |
+| `TKT-009` | `ORD-1024` | `CUS-001` | `OPEN`     | The only open ticket attached to a delayed Gold-tier order             |
 | `TKT-010` | `ORD-1042` | `CUS-002` | `RESOLVED` | Confirms that a delayed order does not necessarily have an open ticket |
 
 At the clean demo baseline, `ORD-1050` and `ORD-1060` must have no refund and no approval request. No other seeded Gold-tier order may combine a delayed shipment with an open ticket.
@@ -388,9 +388,9 @@ crm_search_customers({ tier: "GOLD" })
 
 Expected answer:
 
-* delayed Gold-tier orders: `ORD-1024`, `ORD-1042`, and `ORD-1060`;
-* only `ORD-1024` has an open ticket: `TKT-009`;
-* `ORD-1042` and `ORD-1060` have no open tickets.
+- delayed Gold-tier orders: `ORD-1024`, `ORD-1042`, and `ORD-1060`;
+- only `ORD-1024` has an open ticket: `TKT-009`;
+- `ORD-1042` and `ORD-1060` have no open tickets.
 
 Expected activity after refresh: one successful row for each of the four required tools. Codex may make an additional read-only detail call, but the answer must remain the same. Repeating this scenario causes no data mutation.
 
@@ -457,11 +457,11 @@ Repeating the Codex prompt, refund tool call, or approval action must return the
 
 Before every complete rehearsal and before the live presentation, run the deterministic reset/seed process. The clean baseline must:
 
-* restore all golden customers, orders, shipments, policies, and tickets to the values above;
-* remove the Scenario 2 refund for `ORD-1050`;
-* remove the Scenario 3 approval and refund for `ORD-1060`;
-* clear MCP activity generated by earlier rehearsals;
-* preserve unrelated schema and configuration.
+- restore all golden customers, orders, shipments, policies, and tickets to the values above;
+- remove the Scenario 2 refund for `ORD-1050`;
+- remove the Scenario 3 approval and refund for `ORD-1060`;
+- clear MCP activity generated by earlier rehearsals;
+- preserve unrelated schema and configuration.
 
 The reset must be an explicit presenter action and must never be exposed as an MCP tool.
 
@@ -528,14 +528,14 @@ Tool quality is more important than the total number of tools.
 
 Each tool should have:
 
-* a clear action-oriented name
-* a short description
-* Zod input schemas
-* clear field descriptions
-* concise structured output
-* useful MCP annotations
-* actionable error messages
-* an output schema where practical
+- a clear action-oriented name
+- a short description
+- Zod input schemas
+- clear field descriptions
+- concise structured output
+- useful MCP annotations
+- actionable error messages
+- an output schema where practical
 
 Use consistent prefixes to make tools easy for Codex to discover.
 
@@ -605,11 +605,11 @@ customerId
 
 Returns:
 
-* customer ID
-* name
-* tier
-* email
-* status
+- customer ID
+- name
+- tier
+- email
+- status
 
 ---
 
@@ -619,8 +619,8 @@ Purpose:
 
 Search orders by:
 
-* customer ID or customer IDs
-* status
+- customer ID or customer IDs
+- status
 
 Optional inputs:
 
@@ -652,11 +652,11 @@ orderId
 
 Returns:
 
-* order ID
-* customer ID
-* total
-* status
-* shipment ID
+- order ID
+- customer ID
+- total
+- status
+- shipment ID
 
 ---
 
@@ -677,10 +677,10 @@ Exactly one identifier must be provided.
 
 Returns:
 
-* carrier
-* tracking number
-* status
-* delay days
+- carrier
+- tracking number
+- status
+- delay days
 
 ---
 
@@ -717,8 +717,8 @@ tier
 
 Returns:
 
-* refund percentage
-* maximum autonomous refund
+- refund percentage
+- maximum autonomous refund
 
 ---
 
@@ -798,9 +798,9 @@ status: COMPLETED
 
 The operation must be safe to retry:
 
-* if the order already has a completed refund, return the existing refund and do not create another;
-* if the order already has any approval request, return the existing approval and do not create another;
-* record whether the result was newly created or already existed.
+- if the order already has a completed refund, return the existing refund and do not create another;
+- if the order already has any approval request, return the existing approval and do not create another;
+- record whether the result was newly created or already existed.
 
 Existing-refund and existing-approval checks must run before ordinary eligibility validation so retries return the prior result instead of a misleading ineligible-order error.
 
@@ -817,7 +817,42 @@ openWorldHint: false
 
 ---
 
-## 10.10 ticketing_search_tickets
+## 10.10 payment_get_refund_outcome
+
+Purpose:
+
+Read the persisted refund and approval state for one order after an autonomous action or human decision.
+
+Input:
+
+```text
+orderId
+```
+
+Return:
+
+```text
+orderId
+status: NOT_STARTED | PENDING_APPROVAL | REJECTED | COMPLETED
+currency
+refund (nullable)
+approval (nullable)
+```
+
+The tool must validate that the order exists, return no more than one refund and one approval, and surface an integrity error if an approved request has no completed refund. It is read-only and is the authoritative closing-verification tool for Act 5.
+
+Annotations:
+
+```text
+readOnlyHint: true
+destructiveHint: false
+idempotentHint: true
+openWorldHint: false
+```
+
+---
+
+## 10.11 ticketing_search_tickets
 
 Purpose:
 
@@ -835,7 +870,7 @@ An order may have multiple tickets, so this tool returns a list. At least one fi
 
 ---
 
-## 10.11 ticketing_update_ticket
+## 10.12 ticketing_update_ticket
 
 Purpose:
 
@@ -859,8 +894,8 @@ This tool modifies enterprise state.
 
 Where practical, tools should return both:
 
-* human-readable text
-* structured content
+- human-readable text
+- structured content
 
 Example conceptual response:
 
@@ -915,12 +950,12 @@ Every MCP tool call should create an `mcpLogs` record.
 
 Log:
 
-* tool name
-* primary target ID when one exists
-* input
-* result summary
-* success/failure
-* timestamp
+- tool name
+- primary target ID when one exists
+- input
+- result summary
+- success/failure
+- timestamp
 
 Example:
 
@@ -1007,10 +1042,10 @@ Use a shadcn table.
 
 Columns:
 
-* Time
-* Tool
-* Target
-* Status
+- Time
+- Tool
+- Target
+- Status
 
 ---
 
@@ -1020,10 +1055,10 @@ Use a shadcn data table.
 
 Columns:
 
-* Customer
-* Tier
-* Email
-* Status
+- Customer
+- Tier
+- Email
+- Status
 
 ---
 
@@ -1031,10 +1066,10 @@ Columns:
 
 Columns:
 
-* Order
-* Customer
-* Total
-* Status
+- Order
+- Customer
+- Total
+- Status
 
 ---
 
@@ -1042,11 +1077,11 @@ Columns:
 
 Columns:
 
-* Shipment
-* Order
-* Carrier
-* Status
-* Delay Days
+- Shipment
+- Order
+- Carrier
+- Status
+- Delay Days
 
 ---
 
@@ -1054,11 +1089,11 @@ Columns:
 
 Columns:
 
-* Refund
-* Order
-* Amount
-* Status
-* Created
+- Refund
+- Order
+- Amount
+- Status
+- Created
 
 ---
 
@@ -1066,11 +1101,11 @@ Columns:
 
 Columns:
 
-* Ticket
-* Customer
-* Order
-* Status
-* Notes
+- Ticket
+- Customer
+- Order
+- Status
+- Notes
 
 ---
 
@@ -1114,10 +1149,10 @@ COMPLETED
 
 Use shadcn components:
 
-* Table
-* Badge
-* Card
-* Dialog or Sheet for details
+- Table
+- Badge
+- Card
+- Dialog or Sheet for details
 
 ---
 
@@ -1146,15 +1181,15 @@ Gold policy autonomous limit of $1,000 exceeded
 
 Approve should:
 
-* update approval status;
-* create the refund;
-* perform both changes in one database transaction;
-* return the existing refund without duplication if the action is repeated.
+- update approval status;
+- create the refund;
+- perform both changes in one database transaction;
+- return the existing refund without duplication if the action is repeated.
 
 Reject should:
 
-* mark the approval rejected;
-* not create the refund.
+- mark the approval rejected;
+- not create the refund.
 
 No advanced approval workflow is required.
 
@@ -1306,12 +1341,12 @@ Document the exact seeded records and expected outcomes for the three presentati
 
 For each scenario, record:
 
-* the natural-language prompt shown to Codex;
-* the records Codex should discover;
-* the expected tool-call sequence;
-* the final answer or database change;
-* the MCP Activity rows visible after refresh;
-* the safe result of an accidental repeat.
+- the natural-language prompt shown to Codex;
+- the records Codex should discover;
+- the expected tool-call sequence;
+- the final answer or database change;
+- the MCP Activity rows visible after refresh;
+- the safe result of an accidental repeat.
 
 ### Success condition
 
@@ -1471,6 +1506,34 @@ Prepare a short reset procedure and fallback prompts for the live demonstration.
 
 Codex can connect to the deployed endpoint and all three golden scenarios succeed from a clean seed state in repeated rehearsals.
 
+## Phase 10 — Narrative Demo Expansion
+
+Expand the proven three-scenario core into an 8–10 minute five-act presentation without adding external systems or weakening deterministic reset behavior.
+
+The five acts are:
+
+1. Prioritize delayed Gold-tier customer situations using documented customer impact.
+2. Investigate Northstar's connected CRM, ERP, logistics, and ticket context, then move `TKT-009` to `IN_PROGRESS` with an appended operational note.
+3. Complete Silverline's $320 autonomous refund and demonstrate duplicate protection.
+4. Escalate Atlas's $1,300 refund for human approval, resolve it in the application, and create exactly one refund.
+5. Verify the final Silverline and Atlas outcomes through a read-only MCP payment-outcome tool and close on the Operations Brief.
+
+Add:
+
+- a connected order case route at `/cases/[orderId]`;
+- an `/brief` Operations Brief derived only from persisted database state and MCP logs;
+- policy equations and autonomous-limit explanations on refund and approval surfaces;
+- MCP Activity filters for reads, mutations, policy calls, and approval boundaries;
+- visible distinctions between read-only and mutating calls;
+- cross-page links from enterprise order identifiers into the connected case view;
+- the read-only `payment_get_refund_outcome` MCP tool for final-state verification.
+
+The reset must also restore `TKT-009` to `OPEN` with exactly its original note, remove both scenario refunds and the Atlas approval, and clear MCP activity.
+
+### Success criterion
+
+Two consecutive expanded rehearsals complete from a clean seed. The Operations Brief shows the three story outcomes from persisted state, the closing MCP verification reports one refund per eligible order, and retries produce no duplicate refund or approval.
+
 ---
 
 # 28. AI Coding Agent Instructions
@@ -1494,21 +1557,21 @@ After every phase, require the coding agent to:
 
 Do not build:
 
-* real Salesforce integration;
-* real SAP integration;
-* real payment gateway integration;
-* real Jira integration;
-* complex authentication;
-* enterprise SSO;
-* complex RBAC;
-* multi-agent orchestration;
-* vector databases;
-* RAG;
-* model training;
-* complex prompt-injection detection;
-* production SIEM;
-* WebSockets, polling, or server-sent events for frontend activity updates;
-* frontend features that do not make one of the three live-demo scenarios clearer or more reliable.
+- real Salesforce integration;
+- real SAP integration;
+- real payment gateway integration;
+- real Jira integration;
+- complex authentication;
+- enterprise SSO;
+- complex RBAC;
+- multi-agent orchestration;
+- vector databases;
+- RAG;
+- model training;
+- complex prompt-injection detection;
+- production SIEM;
+- WebSockets, polling, or server-sent events for frontend activity updates;
+- frontend features that do not make one of the three live-demo scenarios clearer or more reliable.
 
 The objective is a clear and reliable MCP demonstration.
 
@@ -1516,37 +1579,37 @@ The objective is a clear and reliable MCP demonstration.
 
 # 30. Definition of Done
 
-* [ ] Next.js application is working.
-* [ ] shadcn/ui is configured.
-* [ ] Neon database is connected.
-* [ ] Drizzle ORM is configured.
-* [ ] Database schema is migrated.
-* [ ] Mock enterprise data is seeded.
-* [ ] Golden demo records and expected results are documented.
-* [ ] Seed data can be reset to a deterministic clean demo state.
-* [ ] Enterprise data pages work.
-* [ ] `/api/mcp` is a working MCP endpoint.
-* [ ] MCP uses Streamable HTTP.
-* [ ] The deployed MCP endpoint requires the configured bearer token.
-* [ ] Tools use Zod input schemas.
-* [ ] Tools provide structured content and output schemas where practical.
-* [ ] Tools use clear enterprise-prefixed names.
-* [ ] Read tools work in MCP Inspector.
-* [ ] Codex connects to the deployed MCP server.
-* [ ] Codex discovers MCP tools.
-* [ ] Codex successfully composes multiple MCP calls.
-* [ ] Refund tool writes to Neon.
-* [ ] Refund amounts are calculated and validated on the server.
-* [ ] Monetary values use integer minor units.
-* [ ] Repeated refund and approval actions do not create duplicates.
-* [ ] Ticket update tool writes to Neon.
-* [ ] Every MCP tool call is logged.
-* [ ] MCP Activity page displays calls after a manual refresh.
-* [ ] Refunds above the applicable tier's `maxAutoRefund` generate approval requests.
-* [ ] Approval can be approved or rejected.
-* [ ] Approval and refund creation occur in one transaction.
-* [ ] Application is deployed to Vercel.
-* [ ] Three presentation scenarios work reliably.
+- [ ] Next.js application is working.
+- [ ] shadcn/ui is configured.
+- [ ] Neon database is connected.
+- [ ] Drizzle ORM is configured.
+- [ ] Database schema is migrated.
+- [ ] Mock enterprise data is seeded.
+- [ ] Golden demo records and expected results are documented.
+- [ ] Seed data can be reset to a deterministic clean demo state.
+- [ ] Enterprise data pages work.
+- [ ] `/api/mcp` is a working MCP endpoint.
+- [ ] MCP uses Streamable HTTP.
+- [ ] The deployed MCP endpoint requires the configured bearer token.
+- [ ] Tools use Zod input schemas.
+- [ ] Tools provide structured content and output schemas where practical.
+- [ ] Tools use clear enterprise-prefixed names.
+- [ ] Read tools work in MCP Inspector.
+- [ ] Codex connects to the deployed MCP server.
+- [ ] Codex discovers MCP tools.
+- [ ] Codex successfully composes multiple MCP calls.
+- [ ] Refund tool writes to Neon.
+- [ ] Refund amounts are calculated and validated on the server.
+- [ ] Monetary values use integer minor units.
+- [ ] Repeated refund and approval actions do not create duplicates.
+- [ ] Ticket update tool writes to Neon.
+- [ ] Every MCP tool call is logged.
+- [ ] MCP Activity page displays calls after a manual refresh.
+- [ ] Refunds above the applicable tier's `maxAutoRefund` generate approval requests.
+- [ ] Approval can be approved or rejected.
+- [ ] Approval and refund creation occur in one transaction.
+- [ ] Application is deployed to Vercel.
+- [ ] Three presentation scenarios work reliably.
 
 ## Final Priority Order
 

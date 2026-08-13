@@ -49,7 +49,12 @@ export default async function TicketsPage() {
                 </TableCell>
                 <TableCell>{ticket.customerName}</TableCell>
                 <TableCell className="font-mono text-xs">
-                  {ticket.orderId}
+                  <Link
+                    href={`/cases/${ticket.orderId}`}
+                    className="underline-offset-4 hover:text-primary hover:underline"
+                  >
+                    {ticket.orderId}
+                  </Link>
                 </TableCell>
                 <TableCell className="max-w-56 whitespace-normal">
                   {ticket.title}
@@ -71,3 +76,4 @@ export default async function TicketsPage() {
     </div>
   )
 }
+import Link from "next/link"

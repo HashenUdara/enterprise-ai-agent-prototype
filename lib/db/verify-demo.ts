@@ -93,7 +93,9 @@ const [
       id: tickets.id,
       orderId: tickets.orderId,
       customerId: tickets.customerId,
+      title: tickets.title,
       status: tickets.status,
+      notes: tickets.notes,
     })
     .from(tickets)
     .where(inArray(tickets.id, ["TKT-009", "TKT-010"]))
@@ -211,13 +213,17 @@ assertEqual("Golden tickets", goldenTickets, [
     id: "TKT-009",
     orderId: "ORD-1024",
     customerId: "CUS-001",
+    title: "Production parts delayed",
     status: "OPEN",
+    notes: "Customer production schedule is at risk.",
   },
   {
     id: "TKT-010",
     orderId: "ORD-1042",
     customerId: "CUS-002",
+    title: "Cold-chain delay follow-up",
     status: "RESOLVED",
+    notes: "Replacement delivery plan was confirmed.",
   },
 ])
 

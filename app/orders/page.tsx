@@ -41,7 +41,12 @@ export default async function OrdersPage() {
             {orders.map((order) => (
               <TableRow key={order.id}>
                 <TableCell className="pl-4 font-mono text-xs font-medium">
-                  {order.id}
+                  <Link
+                    href={`/cases/${order.id}`}
+                    className="underline-offset-4 hover:text-primary hover:underline"
+                  >
+                    {order.id}
+                  </Link>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-1">
@@ -68,3 +73,4 @@ export default async function OrdersPage() {
     </div>
   )
 }
+import Link from "next/link"
