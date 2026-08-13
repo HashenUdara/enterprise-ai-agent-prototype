@@ -36,6 +36,14 @@ bun run enterprise:verify
 
 The service modules live under `lib/enterprise`. They own typed enterprise queries, refund calculations, and validation. The MCP layer calls these functions instead of querying Drizzle directly.
 
+Verify atomic approval/rejection handling, safe retries, and refund creation:
+
+```bash
+bun run approval:verify
+```
+
+Approval resolution is intentionally an application service rather than an MCP tool, preserving the human approval boundary. The Phase 8 Approvals page will call this service.
+
 ## MCP endpoint
 
 The stateless Streamable HTTP endpoint is available at `/api/mcp`. It requires:

@@ -16,6 +16,7 @@
     "db:seed": "bun run lib/db/seed.ts",
     "db:verify": "bun run lib/db/verify.ts",
     "enterprise:verify": "bun run lib/enterprise/verify.ts",
+    "approval:verify": "bun run lib/enterprise/verify-approvals.ts",
     "mcp:verify": "bun run lib/mcp/verify.ts"
   },
   "dependencies": {
