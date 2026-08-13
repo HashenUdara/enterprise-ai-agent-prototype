@@ -17,7 +17,21 @@ import { getMcpActivity } from "@/lib/dashboard/queries"
 export const dynamic = "force-dynamic"
 
 function formatPayload(value: Record<string, unknown>) {
-  return JSON.stringify(value, null, 2)
+  return JSON.stringify(
+    value,
+    (key, nestedValue) => {
+      if (
+        typeof nestedValue === "string" &&
+        /(?:At|_at)$/.test(key) &&
+        !Number.isNaN(Date.parse(nestedValue))
+      ) {
+        return formatDateTime(nestedValue)
+      }
+
+      return nestedValue
+    },
+    2
+  )
 }
 
 export default async function ActivityPage() {
@@ -51,7 +65,7 @@ export default async function ActivityPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Sequence</TableHead>
-                <TableHead>Time</TableHead>
+                <TableHead>Time (Sri Lanka)</TableHead>
                 <TableHead>Tool</TableHead>
                 <TableHead>Target</TableHead>
                 <TableHead>Call details</TableHead>

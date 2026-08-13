@@ -36,7 +36,9 @@ export default async function TicketsPage() {
               <TableHead>Issue</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Notes</TableHead>
-              <TableHead className="pr-4 text-right">Updated</TableHead>
+              <TableHead className="pr-4 text-right">
+                Updated (Sri Lanka)
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

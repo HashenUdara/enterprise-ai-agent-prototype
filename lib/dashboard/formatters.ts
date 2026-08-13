@@ -1,3 +1,5 @@
+export const DISPLAY_TIME_ZONE = "Asia/Colombo"
+
 export function formatMoney(amountMinor: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -9,6 +11,7 @@ export function formatMoney(amountMinor: number) {
 
 export function formatDate(value: Date | string) {
   return new Intl.DateTimeFormat("en-US", {
+    timeZone: DISPLAY_TIME_ZONE,
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -17,11 +20,13 @@ export function formatDate(value: Date | string) {
 
 export function formatDateTime(value: Date | string) {
   return new Intl.DateTimeFormat("en-US", {
+    timeZone: DISPLAY_TIME_ZONE,
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    timeZoneName: "short",
   }).format(new Date(value))
 }
 

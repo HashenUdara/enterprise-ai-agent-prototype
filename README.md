@@ -28,6 +28,14 @@ bun run db:verify
 
 `db:seed` is the explicit demo reset command. It clears live-scenario writes and MCP activity, resets generated IDs, and restores the deterministic customer, order, shipment, refund-policy, ticket, and historical-refund baseline.
 
+For rehearsals and the live presentation, use the stricter reset command. It seeds the database and fails if any golden record or clean-baseline count is wrong:
+
+```bash
+bun run demo:reset
+```
+
+The complete presentation order, expected outcomes, fallback prompts, and recovery checklist are in [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md).
+
 Verify the CRM → ERP → Logistics → Ticketing flow and policy calculations against the seeded database:
 
 ```bash
@@ -42,7 +50,7 @@ Verify atomic approval/rejection handling, safe retries, and refund creation:
 bun run approval:verify
 ```
 
-Approval resolution is intentionally an application service rather than an MCP tool, preserving the human approval boundary. The Phase 8 Approvals page will call this service.
+Approval resolution is intentionally an application service rather than an MCP tool, preserving the human approval boundary. The Approvals page calls this service.
 
 ## MCP endpoint
 

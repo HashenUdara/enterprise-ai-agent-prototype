@@ -176,7 +176,7 @@ export default async function DashboardPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Time</TableHead>
+                <TableHead className="pl-4">Time (Sri Lanka)</TableHead>
                 <TableHead>Tool</TableHead>
                 <TableHead>Target</TableHead>
                 <TableHead className="pr-4 text-right">Status</TableHead>

@@ -87,7 +87,9 @@ export default async function ApprovalsPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Requested</p>
+                      <p className="text-xs text-muted-foreground">
+                        Requested (Sri Lanka)
+                      </p>
                       <p className="mt-1 font-mono text-sm">
                         {formatDateTime(approval.createdAt)}
                       </p>
@@ -132,7 +134,9 @@ export default async function ApprovalsPage() {
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Refund</TableHead>
-                <TableHead className="pr-4 text-right">Resolved</TableHead>
+                <TableHead className="pr-4 text-right">
+                  Resolved (Sri Lanka)
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

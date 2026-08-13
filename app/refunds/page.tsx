@@ -44,7 +44,9 @@ export default async function RefundsPage() {
                 <TableHead>Customer</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="pr-4 text-right">Created</TableHead>
+                <TableHead className="pr-4 text-right">
+                  Created (Sri Lanka)
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
