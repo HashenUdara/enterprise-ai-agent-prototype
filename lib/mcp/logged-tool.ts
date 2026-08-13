@@ -10,6 +10,7 @@ type ExecuteLoggedToolOptions<TResult extends JSONObject> = {
   input: Record<string, unknown>
   run: () => Promise<TResult>
   formatText: (result: TResult) => string
+  summarizeResult?: (result: TResult) => Record<string, unknown>
 }
 
 function jsonRecord(value: Record<string, unknown>) {
@@ -49,6 +50,7 @@ export async function executeLoggedTool<TResult extends JSONObject>({
   input,
   run,
   formatText,
+  summarizeResult,
 }: ExecuteLoggedToolOptions<TResult>): Promise<CallToolResult> {
   try {
     const result = await run()
@@ -57,7 +59,9 @@ export async function executeLoggedTool<TResult extends JSONObject>({
       tool,
       target,
       input: jsonRecord(input),
-      result: { count: result.count ?? null },
+      result: jsonRecord(
+        summarizeResult?.(result) ?? { count: result.count ?? null }
+      ),
       status: "SUCCESS",
     })
 

@@ -7,10 +7,12 @@ import {
   getOrderOutputSchema,
   getRefundPolicyOutputSchema,
   getShipmentOutputSchema,
+  issueRefundOutputSchema,
   searchCustomersOutputSchema,
   searchOrdersOutputSchema,
   searchShipmentsOutputSchema,
   searchTicketsOutputSchema,
+  updateTicketOutputSchema,
 } from "@/lib/mcp/schemas"
 
 config({ path: ".env.local", quiet: true })
@@ -18,7 +20,12 @@ config({ path: ".env.local", quiet: true })
 const token = process.env.MCP_BEARER_TOKEN ?? "local-mcp-verification-token"
 process.env.MCP_BEARER_TOKEN = token
 
-const [{ desc }, { db }, { mcpLogs }, { handleMcpPost }] = await Promise.all([
+const [
+  { count, desc, eq },
+  { db },
+  { approvals, mcpLogs, refunds, tickets },
+  { handleMcpPost },
+] = await Promise.all([
   import("drizzle-orm"),
   import("@/lib/db"),
   import("@/lib/db/schema"),
@@ -126,7 +133,9 @@ const expectedTools = [
   "logistics_get_shipment",
   "policy_get_refund_policy",
   "policy_calculate_refund",
+  "payment_issue_refund",
   "ticketing_search_tickets",
+  "ticketing_update_ticket",
 ]
 
 if (JSON.stringify(listedTools) !== JSON.stringify(expectedTools)) {
@@ -177,12 +186,53 @@ const policy = getRefundPolicyOutputSchema.parse(
 const refundCalculation = calculateRefundOutputSchema.parse(
   await callTool(10, "policy_calculate_refund", { orderId: "ORD-1050" })
 )
+const createdRefund = issueRefundOutputSchema.parse(
+  await callTool(11, "payment_issue_refund", { orderId: "ORD-1050" })
+)
+const existingRefund = issueRefundOutputSchema.parse(
+  await callTool(12, "payment_issue_refund", { orderId: "ORD-1050" })
+)
+const createdApproval = issueRefundOutputSchema.parse(
+  await callTool(13, "payment_issue_refund", { orderId: "ORD-1060" })
+)
+const existingApproval = issueRefundOutputSchema.parse(
+  await callTool(14, "payment_issue_refund", { orderId: "ORD-1060" })
+)
+const updatedTicket = updateTicketOutputSchema.parse(
+  await callTool(15, "ticketing_update_ticket", {
+    ticketId: "TKT-009",
+    status: "IN_PROGRESS",
+    note: "Carrier escalation opened during Phase 6 verification.",
+  })
+)
+
+const [refundCount, approvalCount, storedTicket] = await Promise.all([
+  db.select({ count: count() }).from(refunds),
+  db.select({ count: count() }).from(approvals),
+  db
+    .select({ status: tickets.status, notes: tickets.notes })
+    .from(tickets)
+    .where(eq(tickets.id, "TKT-009"))
+    .limit(1),
+])
+
+const { issueRefund } = await import("@/lib/enterprise/payments")
+const ineligibleResults = await Promise.allSettled([
+  issueRefund("ORD-1025"),
+  issueRefund("ORD-1080"),
+])
+
+if (ineligibleResults.some((result) => result.status !== "rejected")) {
+  throw new Error(
+    "Refund service accepted an in-transit shipment or an inactive customer."
+  )
+}
 
 const recentLogs = await db
   .select({ tool: mcpLogs.tool, status: mcpLogs.status })
   .from(mcpLogs)
   .orderBy(desc(mcpLogs.id))
-  .limit(expectedTools.length)
+  .limit(14)
 
 const actual = {
   tools: listedTools,
@@ -201,6 +251,44 @@ const actual = {
     amountMinor: refundCalculation.recommendedRefundAmountMinor,
     maxAutoRefundAmountMinor: refundCalculation.maxAutoRefundAmountMinor,
     requiresApproval: refundCalculation.requiresApproval,
+  },
+  paymentResults: [
+    {
+      status: createdRefund.status,
+      created: createdRefund.created,
+      orderId: createdRefund.orderId,
+      amountMinor: createdRefund.amountMinor,
+    },
+    {
+      status: existingRefund.status,
+      created: existingRefund.created,
+      orderId: existingRefund.orderId,
+      amountMinor: existingRefund.amountMinor,
+    },
+    {
+      status: createdApproval.status,
+      created: createdApproval.created,
+      orderId: createdApproval.orderId,
+      amountMinor: createdApproval.amountMinor,
+    },
+    {
+      status: existingApproval.status,
+      created: existingApproval.created,
+      orderId: existingApproval.orderId,
+      amountMinor: existingApproval.amountMinor,
+    },
+  ],
+  persistedWrites: {
+    refunds: refundCount[0]?.count ?? 0,
+    approvals: approvalCount[0]?.count ?? 0,
+    ticketStatus: storedTicket[0]?.status,
+    ticketNoteAppended:
+      storedTicket[0]?.notes.endsWith(
+        "Carrier escalation opened during Phase 6 verification."
+      ) ?? false,
+    returnedTicketMatches:
+      updatedTicket.status === storedTicket[0]?.status &&
+      updatedTicket.notes === storedTicket[0]?.notes,
   },
   recentLogs,
 }
@@ -225,7 +313,45 @@ const expected = {
     maxAutoRefundAmountMinor: 50_000,
     requiresApproval: false,
   },
+  paymentResults: [
+    {
+      status: "COMPLETED",
+      created: true,
+      orderId: "ORD-1050",
+      amountMinor: 32_000,
+    },
+    {
+      status: "COMPLETED",
+      created: false,
+      orderId: "ORD-1050",
+      amountMinor: 32_000,
+    },
+    {
+      status: "APPROVAL_REQUIRED",
+      created: true,
+      orderId: "ORD-1060",
+      amountMinor: 130_000,
+    },
+    {
+      status: "APPROVAL_REQUIRED",
+      created: false,
+      orderId: "ORD-1060",
+      amountMinor: 130_000,
+    },
+  ],
+  persistedWrites: {
+    refunds: 4,
+    approvals: 1,
+    ticketStatus: "IN_PROGRESS",
+    ticketNoteAppended: true,
+    returnedTicketMatches: true,
+  },
   recentLogs: [
+    { tool: "ticketing_update_ticket", status: "SUCCESS" },
+    { tool: "payment_issue_refund", status: "SUCCESS" },
+    { tool: "payment_issue_refund", status: "SUCCESS" },
+    { tool: "payment_issue_refund", status: "SUCCESS" },
+    { tool: "payment_issue_refund", status: "SUCCESS" },
     { tool: "policy_calculate_refund", status: "SUCCESS" },
     { tool: "policy_get_refund_policy", status: "SUCCESS" },
     { tool: "ticketing_search_tickets", status: "SUCCESS" },

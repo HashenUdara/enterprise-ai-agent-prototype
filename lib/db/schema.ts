@@ -40,6 +40,14 @@ export const ticketStatus = pgEnum("ticket_status", [
   "RESOLVED",
 ])
 
+export const refundStatus = pgEnum("refund_status", ["COMPLETED"])
+
+export const approvalStatus = pgEnum("approval_status", [
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+])
+
 export const mcpLogStatus = pgEnum("mcp_log_status", ["SUCCESS", "FAILURE"])
 
 export const customers = pgTable(
@@ -150,6 +158,47 @@ export const tickets = pgTable(
   ]
 )
 
+export const refunds = pgTable(
+  "refunds",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    orderId: varchar("order_id", { length: 32 })
+      .notNull()
+      .references(() => orders.id, { onDelete: "restrict" }),
+    amount: integer("amount").notNull(),
+    status: refundStatus("status").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check("refunds_amount_nonnegative", sql`${table.amount} >= 0`),
+    uniqueIndex("refunds_order_id_unique").on(table.orderId),
+  ]
+)
+
+export const approvals = pgTable(
+  "approvals",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    orderId: varchar("order_id", { length: 32 })
+      .notNull()
+      .references(() => orders.id, { onDelete: "restrict" }),
+    amount: integer("amount").notNull(),
+    status: approvalStatus("status").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (table) => [
+    check("approvals_amount_nonnegative", sql`${table.amount} >= 0`),
+    uniqueIndex("approvals_order_id_unique").on(table.orderId),
+    index("approvals_status_idx").on(table.status),
+  ]
+)
+
 export const mcpLogs = pgTable(
   "mcp_logs",
   {
@@ -174,4 +223,6 @@ export type Order = typeof orders.$inferSelect
 export type Shipment = typeof shipments.$inferSelect
 export type RefundPolicy = typeof refundPolicies.$inferSelect
 export type Ticket = typeof tickets.$inferSelect
+export type Refund = typeof refunds.$inferSelect
+export type Approval = typeof approvals.$inferSelect
 export type McpLog = typeof mcpLogs.$inferSelect

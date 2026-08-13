@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm"
+import { and, asc, eq, inArray, sql } from "drizzle-orm"
 
 import { db } from "@/lib/db"
 import { tickets, ticketStatus } from "@/lib/db/schema"
@@ -6,6 +6,7 @@ import {
   EnterpriseValidationError,
   normalizeIds,
   normalizeLimit,
+  normalizeOptionalText,
 } from "@/lib/enterprise/query-helpers"
 
 export type TicketStatus = (typeof ticketStatus.enumValues)[number]
@@ -50,4 +51,49 @@ export async function searchTickets(input: SearchTicketsInput) {
         updatedAt: row.updatedAt.toISOString(),
       }))
     )
+}
+
+export type UpdateTicketInput = {
+  ticketId: string
+  status: TicketStatus
+  note: string
+}
+
+export async function updateTicket(input: UpdateTicketInput) {
+  const ticketId = normalizeOptionalText(input.ticketId)
+  const note = normalizeOptionalText(input.note)
+
+  if (!ticketId) {
+    throw new EnterpriseValidationError("ticketId is required.")
+  }
+
+  if (!note) {
+    throw new EnterpriseValidationError("note is required.")
+  }
+
+  const [ticket] = await db
+    .update(tickets)
+    .set({
+      status: input.status,
+      notes: sql`${tickets.notes} || E'\n' || ${note}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(tickets.id, ticketId))
+    .returning({
+      ticketId: tickets.id,
+      orderId: tickets.orderId,
+      customerId: tickets.customerId,
+      title: tickets.title,
+      status: tickets.status,
+      notes: tickets.notes,
+      updatedAt: tickets.updatedAt,
+    })
+
+  if (!ticket) {
+    throw new EnterpriseValidationError(
+      `Ticket ${ticketId} was not found. Use ticketing_search_tickets to discover a valid ticket ID.`
+    )
+  }
+
+  return { ...ticket, updatedAt: ticket.updatedAt.toISOString() }
 }

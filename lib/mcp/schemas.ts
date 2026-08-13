@@ -268,3 +268,53 @@ export const searchTicketsOutputSchema = z.object({
   count: z.number().int().nonnegative(),
   tickets: z.array(ticketResultSchema),
 })
+
+export const issueRefundInputSchema = z
+  .object({
+    orderId: orderIdSchema.describe(
+      "Refund-eligible delayed order. The server calculates and controls the amount."
+    ),
+  })
+  .strict()
+
+const paymentResultBaseSchema = z.object({
+  created: z.boolean(),
+  orderId: orderIdSchema,
+  amountMinor: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime(),
+  currency: z.literal("USD"),
+})
+
+export const issueRefundOutputSchema = z.discriminatedUnion("status", [
+  paymentResultBaseSchema.extend({
+    status: z.literal("COMPLETED"),
+    refundId: z.number().int().positive(),
+    refundStatus: z.literal("COMPLETED"),
+  }),
+  paymentResultBaseSchema.extend({
+    status: z.literal("APPROVAL_REQUIRED"),
+    approvalId: z.number().int().positive(),
+    approvalStatus: z.enum(["PENDING", "APPROVED", "REJECTED"]),
+    reason: z.string(),
+    resolvedAt: z.iso.datetime().nullable(),
+  }),
+])
+
+export const updateTicketInputSchema = z
+  .object({
+    ticketId: ticketIdSchema.describe(
+      "Support ticket ID returned by ticketing_search_tickets."
+    ),
+    status: z
+      .enum(ticketStatus.enumValues)
+      .describe("New support ticket status."),
+    note: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .describe("Note to append without replacing existing ticket notes."),
+  })
+  .strict()
+
+export const updateTicketOutputSchema = ticketResultSchema

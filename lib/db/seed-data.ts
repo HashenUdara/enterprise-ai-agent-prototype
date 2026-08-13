@@ -4,6 +4,7 @@ import {
   customers,
   orders,
   refundPolicies,
+  refunds,
   shipments,
   tickets,
 } from "@/lib/db/schema"
@@ -12,6 +13,7 @@ type NewCustomer = InferInsertModel<typeof customers>
 type NewOrder = InferInsertModel<typeof orders>
 type NewShipment = InferInsertModel<typeof shipments>
 type NewRefundPolicy = InferInsertModel<typeof refundPolicies>
+type NewRefund = InferInsertModel<typeof refunds>
 type NewTicket = InferInsertModel<typeof tickets>
 
 const createdAt = new Date("2026-08-01T09:00:00.000Z")
@@ -461,6 +463,27 @@ export const seedRefundPolicies = [
     maxAutoRefund: 25_000,
   },
 ] satisfies NewRefundPolicy[]
+
+export const seedRefunds = [
+  {
+    orderId: "ORD-1030",
+    amount: 4_250,
+    status: "COMPLETED",
+    createdAt,
+  },
+  {
+    orderId: "ORD-1046",
+    amount: 14_500,
+    status: "COMPLETED",
+    createdAt,
+  },
+  {
+    orderId: "ORD-1091",
+    amount: 7_750,
+    status: "COMPLETED",
+    createdAt,
+  },
+] satisfies NewRefund[]
 
 export const seedTickets = [
   {

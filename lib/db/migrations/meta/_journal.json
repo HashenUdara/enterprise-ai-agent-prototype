@@ -15,6 +15,13 @@
       "when": 1786635509710,
       "tag": "0001_perfect_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786636803556,
+      "tag": "0002_neat_gambit",
+      "breakpoints": true
     }
   ]
 }

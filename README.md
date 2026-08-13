@@ -26,7 +26,7 @@ bun run db:seed
 bun run db:verify
 ```
 
-`db:seed` is the explicit demo reset command. It clears MCP activity and restores the deterministic customer, order, shipment, refund-policy, and ticket baseline.
+`db:seed` is the explicit demo reset command. It clears live-scenario writes and MCP activity, resets generated IDs, and restores the deterministic customer, order, shipment, refund-policy, ticket, and historical-refund baseline.
 
 Verify the CRM → ERP → Logistics → Ticketing flow and policy calculations against the seeded database:
 
@@ -53,7 +53,7 @@ Verify authentication, Origin rejection, tool discovery, structured tool calls, 
 bun run mcp:verify
 ```
 
-The verification calls all nine read-only MCP tools and creates nine MCP Activity records. Run `bun run db:seed` afterward to restore the clean presentation baseline.
+The verification calls all eleven MCP tools, exercises refund and approval duplicate protection, and confirms that ticket notes are appended. Run `bun run db:seed` afterward to restore the clean presentation baseline.
 
 When the schema changes, generate and review a new SQL migration before applying it:
 

@@ -3,8 +3,9 @@ import { createMcpHandler, McpServer } from "@modelcontextprotocol/server"
 import { getCustomer, searchCustomers } from "@/lib/enterprise/crm"
 import { getOrder, searchOrders } from "@/lib/enterprise/erp"
 import { getShipment, searchShipments } from "@/lib/enterprise/logistics"
+import { issueRefund } from "@/lib/enterprise/payments"
 import { calculateRefund, getRefundPolicy } from "@/lib/enterprise/policies"
-import { searchTickets } from "@/lib/enterprise/ticketing"
+import { searchTickets, updateTicket } from "@/lib/enterprise/ticketing"
 import { executeLoggedTool } from "@/lib/mcp/logged-tool"
 import {
   calculateRefundInputSchema,
@@ -17,6 +18,8 @@ import {
   getRefundPolicyOutputSchema,
   getShipmentInputSchema,
   getShipmentOutputSchema,
+  issueRefundInputSchema,
+  issueRefundOutputSchema,
   searchCustomersInputSchema,
   searchCustomersOutputSchema,
   searchOrdersInputSchema,
@@ -25,12 +28,28 @@ import {
   searchShipmentsOutputSchema,
   searchTicketsInputSchema,
   searchTicketsOutputSchema,
+  updateTicketInputSchema,
+  updateTicketOutputSchema,
 } from "@/lib/mcp/schemas"
 
 const readOnlyAnnotations = {
   readOnlyHint: true,
   destructiveHint: false,
   idempotentHint: true,
+  openWorldHint: false,
+} as const
+
+const idempotentFinancialWriteAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const
+
+const ticketWriteAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
   openWorldHint: false,
 } as const
 
@@ -246,6 +265,41 @@ function createEnterpriseMcpServer() {
   )
 
   server.registerTool(
+    "payment_issue_refund",
+    {
+      title: "Issue policy-controlled refund",
+      description:
+        "Process a delayed order under authoritative enterprise policy. The server validates eligibility and calculates the amount; callers cannot supply an amount. Creates one completed refund within maxAutoRefund or one pending approval above it. Safe retries return the existing outcome with created=false.",
+      inputSchema: issueRefundInputSchema,
+      outputSchema: issueRefundOutputSchema,
+      annotations: idempotentFinancialWriteAnnotations,
+    },
+    async (input) =>
+      executeLoggedTool({
+        tool: "payment_issue_refund",
+        target: input.orderId,
+        input,
+        run: () => issueRefund(input.orderId),
+        formatText: (result) =>
+          result.status === "COMPLETED"
+            ? `${result.created ? "Created" : "Returned existing"} completed refund ${result.refundId} for ${result.orderId}: ${formatMoney(result.amountMinor, result.currency)}.`
+            : `${result.created ? "Created" : "Returned existing"} ${result.approvalStatus.toLowerCase()} approval ${result.approvalId} for ${result.orderId}: ${formatMoney(result.amountMinor, result.currency)}. No refund was created.`,
+        summarizeResult: (result) => ({
+          status: result.status,
+          created: result.created,
+          orderId: result.orderId,
+          amountMinor: result.amountMinor,
+          ...(result.status === "COMPLETED"
+            ? { refundId: result.refundId }
+            : {
+                approvalId: result.approvalId,
+                approvalStatus: result.approvalStatus,
+              }),
+        }),
+      })
+  )
+
+  server.registerTool(
     "ticketing_search_tickets",
     {
       title: "Search support tickets",
@@ -273,6 +327,32 @@ function createEnterpriseMcpServer() {
                     `${ticket.ticketId} for ${ticket.orderId} (${ticket.status}: ${ticket.title})`
                 )
                 .join(", ")}.`,
+      })
+  )
+
+  server.registerTool(
+    "ticketing_update_ticket",
+    {
+      title: "Update support ticket",
+      description:
+        "Update one simulated support ticket's status and append a note. Existing notes are preserved. This changes enterprise ticketing state and repeated calls append the note again.",
+      inputSchema: updateTicketInputSchema,
+      outputSchema: updateTicketOutputSchema,
+      annotations: ticketWriteAnnotations,
+    },
+    async (input) =>
+      executeLoggedTool({
+        tool: "ticketing_update_ticket",
+        target: input.ticketId,
+        input,
+        run: () => updateTicket(input),
+        formatText: (ticket) =>
+          `Updated ${ticket.ticketId} to ${ticket.status}. The new note was appended; existing notes were preserved.`,
+        summarizeResult: (ticket) => ({
+          ticketId: ticket.ticketId,
+          orderId: ticket.orderId,
+          status: ticket.status,
+        }),
       })
   )
 
