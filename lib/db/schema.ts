@@ -34,6 +34,12 @@ export const shipmentStatus = pgEnum("shipment_status", [
   "DELIVERED",
 ])
 
+export const ticketStatus = pgEnum("ticket_status", [
+  "OPEN",
+  "IN_PROGRESS",
+  "RESOLVED",
+])
+
 export const mcpLogStatus = pgEnum("mcp_log_status", ["SUCCESS", "FAILURE"])
 
 export const customers = pgTable(
@@ -99,6 +105,51 @@ export const shipments = pgTable(
   ]
 )
 
+export const refundPolicies = pgTable(
+  "refund_policies",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    tier: customerTier("tier").notNull(),
+    refundPercentage: integer("refund_percentage").notNull(),
+    maxAutoRefund: integer("max_auto_refund").notNull(),
+  },
+  (table) => [
+    check(
+      "refund_policies_percentage_range",
+      sql`${table.refundPercentage} >= 0 and ${table.refundPercentage} <= 100`
+    ),
+    check(
+      "refund_policies_max_auto_refund_nonnegative",
+      sql`${table.maxAutoRefund} >= 0`
+    ),
+    uniqueIndex("refund_policies_tier_unique").on(table.tier),
+  ]
+)
+
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    orderId: varchar("order_id", { length: 32 })
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    customerId: varchar("customer_id", { length: 32 })
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    title: text("title").notNull(),
+    status: ticketStatus("status").notNull(),
+    notes: text("notes").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("tickets_order_id_idx").on(table.orderId),
+    index("tickets_customer_id_idx").on(table.customerId),
+    index("tickets_status_idx").on(table.status),
+  ]
+)
+
 export const mcpLogs = pgTable(
   "mcp_logs",
   {
@@ -121,4 +172,6 @@ export const mcpLogs = pgTable(
 export type Customer = typeof customers.$inferSelect
 export type Order = typeof orders.$inferSelect
 export type Shipment = typeof shipments.$inferSelect
+export type RefundPolicy = typeof refundPolicies.$inferSelect
+export type Ticket = typeof tickets.$inferSelect
 export type McpLog = typeof mcpLogs.$inferSelect

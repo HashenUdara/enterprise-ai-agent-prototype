@@ -59,3 +59,36 @@ export async function searchOrders(input: SearchOrdersInput) {
       }))
     )
 }
+
+export async function getOrder(orderId: string) {
+  const normalizedOrderId = normalizeOptionalText(orderId)
+
+  if (!normalizedOrderId) {
+    throw new EnterpriseValidationError("orderId is required.")
+  }
+
+  const [order] = await db
+    .select({
+      orderId: orders.id,
+      customerId: orders.customerId,
+      totalAmountMinor: orders.total,
+      status: orders.status,
+      shipmentId: orders.shipmentId,
+      createdAt: orders.createdAt,
+    })
+    .from(orders)
+    .where(eq(orders.id, normalizedOrderId))
+    .limit(1)
+
+  if (!order) {
+    throw new EnterpriseValidationError(
+      `Order ${normalizedOrderId} was not found. Use erp_search_orders to discover a valid order ID.`
+    )
+  }
+
+  return {
+    ...order,
+    createdAt: order.createdAt.toISOString(),
+    currency: "USD" as const,
+  }
+}

@@ -46,3 +46,31 @@ export async function searchCustomers(input: SearchCustomersInput) {
     .orderBy(asc(customers.name), asc(customers.id))
     .limit(normalizeLimit(input.limit))
 }
+
+export async function getCustomer(customerId: string) {
+  const normalizedCustomerId = normalizeOptionalText(customerId)
+
+  if (!normalizedCustomerId) {
+    throw new EnterpriseValidationError("customerId is required.")
+  }
+
+  const [customer] = await db
+    .select({
+      customerId: customers.id,
+      name: customers.name,
+      tier: customers.tier,
+      email: customers.email,
+      status: customers.status,
+    })
+    .from(customers)
+    .where(eq(customers.id, normalizedCustomerId))
+    .limit(1)
+
+  if (!customer) {
+    throw new EnterpriseValidationError(
+      `Customer ${normalizedCustomerId} was not found. Use crm_search_customers to discover a valid customer ID.`
+    )
+  }
+
+  return customer
+}

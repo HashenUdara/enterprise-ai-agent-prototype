@@ -6,6 +6,7 @@ import {
   EnterpriseValidationError,
   normalizeIds,
   normalizeLimit,
+  normalizeOptionalText,
 } from "@/lib/enterprise/query-helpers"
 
 export type ShipmentStatus = (typeof shipmentStatus.enumValues)[number]
@@ -60,4 +61,46 @@ export async function searchShipments(input: SearchShipmentsInput) {
     )
     .orderBy(asc(shipments.orderId), asc(shipments.id))
     .limit(normalizeLimit(input.limit))
+}
+
+export type GetShipmentInput = {
+  orderId?: string
+  shipmentId?: string
+}
+
+export async function getShipment(input: GetShipmentInput) {
+  const orderId = normalizeOptionalText(input.orderId)
+  const shipmentId = normalizeOptionalText(input.shipmentId)
+
+  if ((orderId ? 1 : 0) + (shipmentId ? 1 : 0) !== 1) {
+    throw new EnterpriseValidationError(
+      "Provide exactly one of orderId or shipmentId."
+    )
+  }
+
+  const [shipment] = await db
+    .select({
+      shipmentId: shipments.id,
+      orderId: shipments.orderId,
+      carrier: shipments.carrier,
+      trackingNumber: shipments.trackingNumber,
+      status: shipments.status,
+      delayDays: shipments.delayDays,
+    })
+    .from(shipments)
+    .where(
+      orderId
+        ? eq(shipments.orderId, orderId)
+        : eq(shipments.id, shipmentId as string)
+    )
+    .limit(1)
+
+  if (!shipment) {
+    const target = orderId ?? shipmentId
+    throw new EnterpriseValidationError(
+      `Shipment for ${target} was not found. Use logistics_search_shipments to discover a valid shipment.`
+    )
+  }
+
+  return shipment
 }

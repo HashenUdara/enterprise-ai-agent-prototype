@@ -14,7 +14,7 @@ The prototype uses Drizzle ORM with Neon PostgreSQL through the serverless HTTP 
 bun run db:migrate
 ```
 
-4. Reset and seed the deterministic walking-skeleton records:
+4. Reset and seed the deterministic demo records:
 
 ```bash
 bun run db:seed
@@ -26,15 +26,15 @@ bun run db:seed
 bun run db:verify
 ```
 
-`db:seed` is the explicit demo reset command for the current four-table slice. It clears MCP activity and replaces the current customer, order, and shipment records with the golden baseline.
+`db:seed` is the explicit demo reset command. It clears MCP activity and restores the deterministic customer, order, shipment, refund-policy, and ticket baseline.
 
-Verify the first CRM → ERP → Logistics enterprise-service flow against the seeded database:
+Verify the CRM → ERP → Logistics → Ticketing flow and policy calculations against the seeded database:
 
 ```bash
 bun run enterprise:verify
 ```
 
-The service modules live under `lib/enterprise`. They own typed enterprise queries and validation; the later MCP layer will call these functions instead of querying Drizzle directly.
+The service modules live under `lib/enterprise`. They own typed enterprise queries, refund calculations, and validation. The MCP layer calls these functions instead of querying Drizzle directly.
 
 ## MCP endpoint
 
@@ -53,7 +53,7 @@ Verify authentication, Origin rejection, tool discovery, structured tool calls, 
 bun run mcp:verify
 ```
 
-The verification calls create three MCP Activity records. Run `bun run db:seed` afterward when you want to restore the clean presentation baseline.
+The verification calls all nine read-only MCP tools and creates nine MCP Activity records. Run `bun run db:seed` afterward to restore the clean presentation baseline.
 
 When the schema changes, generate and review a new SQL migration before applying it:
 
