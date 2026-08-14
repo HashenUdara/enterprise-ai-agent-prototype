@@ -39,12 +39,12 @@ const navigation = [
   { href: "/tickets", label: "Tickets", icon: TicketCheckIcon },
   { href: "/activity", label: "MCP Activity", icon: ActivityIcon },
   { href: "/approvals", label: "Approvals", icon: ClipboardCheckIcon },
-  {
-    href: "/cases/ORD-1024",
-    label: "Northstar Case",
-    icon: FileSearchIcon,
-  },
-  { href: "/brief", label: "Operations Brief", icon: ScrollTextIcon },
+  // {
+  //   href: "/cases/ORD-1024",
+  //   label: "Northstar Case",
+  //   icon: FileSearchIcon,
+  // },
+  // { href: "/brief", label: "Operations Brief", icon: ScrollTextIcon },
 ]
 
 export function AppSidebar() {

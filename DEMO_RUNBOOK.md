@@ -75,7 +75,39 @@ Keep Codex and the deployed application visible side by side. Start on the Dashb
 
 Let the audience see Codex discover and call tools. Refresh the application only after Codex finishes an act.
 
-## 5. Five-act presentation
+## 5. Quick prompt card
+
+Copy and paste these prompts during the live demonstration.
+
+### Prompt 1 — Find the urgent situation
+
+> Review delayed orders for Gold-tier customers. Prioritize documented customer impact over delay length alone, and identify which situation needs attention first.
+
+### Prompt 2 — Investigate and update the ticket
+
+> Investigate Northstar Industries' affected order. Then mark its open support ticket as in progress and add this note: Operations is investigating the delayed shipment with DHL.
+
+Do not repeat Prompt 2 during the same rehearsal because ticket notes are intentionally appended.
+
+### Prompt 3 — Process an autonomous refund
+
+> Find Silverline Retail's delayed order and process the appropriate refund according to enterprise policy if it is within the autonomous limit.
+
+### Prompt 4 — Demonstrate human approval
+
+> Find Atlas Manufacturing's delayed order and process the appropriate refund according to enterprise policy.
+
+After Codex finishes, open **Approvals** and approve the refund.
+
+### Prompt 5 — Verify and summarize
+
+> Verify the final payment outcomes for Silverline Retail's and Atlas Manufacturing's delayed orders. Confirm the refund amounts, approval status, and whether any duplicate refunds or approvals exist.
+
+Refresh **Operations Brief** after Prompt 5 to finish the presentation.
+
+Prompts 3 and 4 are safe to repeat because refund and approval creation is duplicate-protected.
+
+## 6. Five-act presentation
 
 ### Act 1 — Prioritize the situation
 
@@ -249,7 +281,7 @@ Fallback prompt:
 
 > Use the payment outcome tool for ORD-1050 and ORD-1060. Compare their persisted refunds and approvals and report any duplicate state.
 
-## 6. Optional governance branch — Rejection
+## 7. Optional governance branch — Rejection
 
 Use this only for Q&A or a longer session. It requires its own reset.
 
@@ -260,7 +292,7 @@ Use this only for Q&A or a longer session. It requires its own reset.
 5. Call `payment_get_refund_outcome` for `ORD-1060`; it must report a rejected approval and no refund.
 6. Run `bun run demo:reset` again before returning to the main presentation.
 
-## 7. Recovery table
+## 8. Recovery table
 
 | Problem                                | Recovery                                                                                                                                                             |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -274,7 +306,7 @@ Use this only for Q&A or a longer session. It requires its own reset.
 | Operations Brief looks incomplete      | Finish the current Codex act, refresh the page, and verify the expected mutation in its source page.                                                                 |
 | Prompt causes unnecessary calls        | Use that act's fallback prompt. Do not manually supply database IDs unless recovering the demo.                                                                      |
 
-## 8. Final go/no-go checklist
+## 9. Final go/no-go checklist
 
 Complete two consecutive rehearsals. Mark the demo ready only when every item is true:
 
